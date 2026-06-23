@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+*.env.*
+credentials.json
+*.pem
+*.key
+
+# Data files
+*.csv
+*.parquet
+*.json.gz
+*.ndjson
+
+# Office docs
+*.docx
+*.xlsx
+*.pdf
+
+# GraphRAG working directory
+opspu_graphrag/
+
+# PromptFoo cache
+.promptfoo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+inference_audit.jsonl
+
+# dbt
+dbt_packages/
+logs/
+target/
