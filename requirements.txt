@@ -18,7 +18,7 @@ pydantic>=2.0
 # Graph / vector
 networkx>=3.0
 neo4j>=5.0
-"graphrag>=0.3,<1.0"
+graphrag>=0.3,<1.0
 rank-bm25>=0.2
 
 # Snowflake
@@ -37,6 +37,7 @@ uvicorn>=0.29
 apache-airflow>=2.9
 
 # OpenLineage
+# Pin <1.0: v1.0 changed openlineage.client.run → openlineage.client.event_v2
 openlineage-python<1.0
 openlineage-airflow<1.0
 

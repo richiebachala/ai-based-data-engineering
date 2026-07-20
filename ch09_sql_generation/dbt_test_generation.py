@@ -22,6 +22,7 @@ import anthropic
 from pydantic import BaseModel, Field
 from typing import Optional
 import json
+import re
 
 client = anthropic.Anthropic()
 
@@ -197,7 +198,6 @@ def generate_complex_tests(
         return blocks
 
 
-import re
 
 
 if __name__ == "__main__":

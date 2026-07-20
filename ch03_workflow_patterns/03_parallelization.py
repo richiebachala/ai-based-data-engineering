@@ -39,7 +39,7 @@ async def _describe_column(
     sample_values: list | None = None,
 ) -> dict:
     """Async: generate one column description (no thread pool; runs in executor)."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _call():
         sample_str = ""
@@ -100,7 +100,7 @@ async def _single_impact_vote(
     downstream_consumers: list[str],
 ) -> ImpactAssessment:
     """One vote in the impact assessment ensemble."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 
     def _call():
         response = client.messages.create(
@@ -122,7 +122,7 @@ async def _single_impact_vote(
         tool_call = next(b for b in response.content if b.type == "tool_use")
         return ImpactAssessment(**tool_call.input)
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, _call)
 
 

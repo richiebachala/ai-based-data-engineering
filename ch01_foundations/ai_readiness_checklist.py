@@ -19,7 +19,9 @@ Scores a table on six dimensions (0-3 each, max 18):
 OpsPulse starting score: 4 / 18 (realistic baseline for most teams).
 """
 
+import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 
@@ -52,19 +54,19 @@ class AIReadinessResult:
         print(f"{'='*55}")
         for d in self.dimensions:
             bar = '█' * d.score + '░' * (d.max_score - d.score)
-        print(f"  {d.dimension:<22} [{bar}] {d.score}/{d.max_score}")
-        if d.notes:
-            print(f"    └ {d.notes}")
+            print(f"  {d.dimension:<22} [{bar}] {d.score}/{d.max_score}")
+            if d.notes:
+                print(f"    └ {d.notes}")
         print(f"{'='*55}")
         print(f"  TOTAL: {self.total_score}/{self.max_score} "
               f"({self.total_score/self.max_score*100:.0f}%)")
         print()
         if self.total_score <= 6:
-            print("  Status: 🔴  Foundation work required before AI participation")
+            print("  Status: Foundation work required before AI participation")
         elif self.total_score <= 12:
-            print("  Status: 🟡  Targeted investments will unlock AI use cases")
+            print("  Status: Targeted investments will unlock AI use cases")
         else:
-            print("  Status: 🟢  Ready for production AI workflows")
+            print("  Status: Ready for production AI workflows")
 
 
 def score_table(
@@ -234,6 +236,146 @@ def score_table(
     return result
 
 
+# --- Tier A: local DuckDB path (runs with no account, no keys) ---------------
+#
+# The functions above target Snowflake. For a zero-friction local run, generate
+# the OpsPulse dataset first:
+#
+#     pip install -r setup/requirements-setup.txt
+#     python setup/opspulse_generator.py --target duckdb --out setup/opspulse.duckdb
+#
+# then run this file directly. See setup/README.md.
+
+
+def _default_duckdb_path() -> Path:
+    """Locate the generated OpsPulse DuckDB file (env override wins)."""
+    env = os.getenv("OPSPULSE_DUCKDB")
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[1] / "setup" / "opspulse.duckdb"
+
+
+def score_table_duckdb(
+    con,
+    table_name: str,
+    dbt_manifest: Optional[dict] = None,
+) -> AIReadinessResult:
+    """Score a local DuckDB table on the six AI-readiness dimensions.
+
+    D1 (schema freshness) is computed for real from the local catalog. D2/D3 use
+    a dbt manifest if supplied. D4-D6 depend on Snowflake platform features
+    (Iceberg snapshots, policy catalog, access history) and are reported as
+    unavailable in local mode — which is itself the honest OpsPulse starting
+    point: a raw, undocumented, ungoverned table.
+    """
+    result = AIReadinessResult(table_fqn=table_name)
+    tname = table_name.split(".")[-1].upper()
+
+    # --- D1: Schema freshness (real) ---
+    row = con.execute(
+        """
+        SELECT COUNT(*) AS total_cols,
+               SUM(CASE WHEN comment IS NOT NULL
+                         AND LENGTH(TRIM(comment)) > 5
+                        THEN 1 ELSE 0 END) AS documented_cols
+        FROM duckdb_columns()
+        WHERE UPPER(table_name) = ?
+        """,
+        [tname],
+    ).fetchone()
+    total, documented = (row[0] or 0, row[1] or 0)
+    if total == 0:
+        d1 = 0
+    elif documented / total >= 0.90:
+        d1 = 3
+    elif documented / total >= 0.50:
+        d1 = 2
+    elif documented / total > 0:
+        d1 = 1
+    else:
+        d1 = 0
+    result.dimensions.append(DimensionScore(
+        "D1: Schema freshness", d1,
+        notes=f"{documented}/{total} columns documented (local catalog)"
+    ))
+
+    # --- D2 / D3: from dbt manifest if provided (same logic as Snowflake path) ---
+    d2 = d3 = 0
+    if dbt_manifest:
+        model_name = tname.lower()
+        semantic_models = dbt_manifest.get("semantic_models", {})
+        metrics = dbt_manifest.get("metrics", {})
+        has_semantic = any(model_name in str(sm.get("model", "")).lower()
+                           for sm in semantic_models.values())
+        has_metric = any(model_name in str(m).lower() for m in metrics.values())
+        d2 = 3 if (has_semantic and has_metric) else 2 if has_semantic else 1 if has_metric else 0
+        nodes = dbt_manifest.get("nodes", {})
+        tests = [n for n in nodes.values()
+                 if n.get("resource_type") == "test"
+                 and model_name in str(n.get("attached_node", ""))]
+        d3 = 3 if len(tests) >= 5 else 2 if len(tests) >= 2 else 1 if len(tests) >= 1 else 0
+    result.dimensions.append(DimensionScore(
+        "D2: Semantic coverage", d2,
+        notes="" if dbt_manifest else "Requires dbt manifest"))
+    result.dimensions.append(DimensionScore(
+        "D3: Test coverage", d3,
+        notes="" if dbt_manifest else "Requires dbt manifest"))
+
+    # --- D4 / D5 / D6: Snowflake platform features, unavailable locally ---
+    for dim, note in [
+        ("D4: Eval readiness", "local mode: requires Iceberg snapshot history"),
+        ("D5: Governance scope", "local mode: requires Snowflake policy catalog"),
+        ("D6: Lineage coverage", "local mode: requires account_usage.access_history"),
+    ]:
+        result.dimensions.append(DimensionScore(dim, 0, notes=note))
+
+    return result
+
+
+def print_active_customer_divergence(con) -> None:
+    """The Chapter 1 'aha': four teams, four counts, one dataset."""
+    rows = con.execute(
+        "SELECT definition, active_customers "
+        "FROM v_active_customer_divergence ORDER BY active_customers DESC"
+    ).fetchall()
+    reconciled = con.execute("SELECT COUNT(*) FROM fct_active_customers").fetchone()[0]
+
+    print("\nOpsPulse: how many 'active customers' do we have?")
+    print("=" * 55)
+    for definition, count in rows:
+        print(f"  {definition:<20} {count:>8,d}")
+    print("-" * 55)
+    print(f"  {'reconciled fact':<20} {reconciled:>8,d}   (fct_active_customers)")
+    print("=" * 55)
+    print("  Same data. Four honest definitions. Four different numbers.")
+    print("  This is the problem a semantic layer exists to solve.\n")
+
+
+def run_local_demo(duckdb_path: Optional[Path] = None) -> bool:
+    """Tier-A demo: run the Chapter 1 divergence + score a real local table.
+
+    Returns True if the local dataset was found and the demo ran.
+    """
+    path = duckdb_path or _default_duckdb_path()
+    if not path.exists():
+        return False
+    try:
+        import duckdb
+    except ImportError:
+        print("duckdb not installed — run: pip install -r setup/requirements-setup.txt")
+        return False
+
+    con = duckdb.connect(str(path), read_only=True)
+    try:
+        print(f"Tier A — live local demo against {path.name} (no account, no keys)")
+        print_active_customer_divergence(con)
+        # Score a real raw table: undocumented + ungoverned = the OpsPulse baseline.
+        score_table_duckdb(con, "ERP_ORDERS").print_report()
+    finally:
+        con.close()
+    return True
+
+
 # --- Illustrative OpsPulse baseline (no live connection needed) ---
 
 OPSPULSE_BASELINE = AIReadinessResult(
@@ -250,5 +392,12 @@ OPSPULSE_BASELINE = AIReadinessResult(
 
 
 if __name__ == "__main__":
-    print("OpsPulse baseline AI-readiness score (no live connection):")
-    OPSPU_BASELINE.print_report()
+    # Prefer the live Tier-A demo (real data, no account). Falls back to the
+    # illustrative baseline if the OpsPulse DuckDB file has not been generated.
+    if not run_local_demo():
+        print("No local OpsPulse dataset found "
+              f"({_default_duckdb_path()}).")
+        print("Generate it with:  python setup/opspulse_generator.py --target duckdb "
+              "--out setup/opspulse.duckdb")
+        print("\nShowing the illustrative OpsPulse baseline instead:")
+        OPSPULSE_BASELINE.print_report()

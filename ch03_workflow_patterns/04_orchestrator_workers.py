@@ -129,7 +129,7 @@ async def _worker_async(
     sub_task: SubTask,
     proposed_change: str,
 ) -> TableImpactAssessment:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         None,
         lambda: assess_single_table(

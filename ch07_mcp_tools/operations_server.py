@@ -45,6 +45,11 @@ mcp = FastMCP(
 )
 
 _APPROVAL_SECRET = os.environ.get("APPROVAL_HMAC_SECRET", "change-me-in-production")
+if _APPROVAL_SECRET == "change-me-in-production":
+    raise RuntimeError(
+        "APPROVAL_HMAC_SECRET environment variable is not set. "
+        "Set it before running the operations server."
+    )
 
 
 class UpdateColumnDescriptionRequest(BaseModel):

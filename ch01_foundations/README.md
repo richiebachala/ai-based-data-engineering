@@ -5,7 +5,7 @@
 
 | File | Description |
 |------|-------------|
-| `ai_readiness_checklist.py` | Score any Snowflake table on six AI-readiness dimensions (D1–D6). Includes the OpsPulse baseline (4/18). |
+| `ai_readiness_checklist.py` | Score any table on six AI-readiness dimensions (D1–D6). Runs locally against the OpsPulse DuckDB dataset (Tier A, no account) or against a live Snowflake table (Tier B). |
 
 ## Key concepts
 
@@ -16,11 +16,25 @@
 
 ## Usage
 
-```bash
-# Print the OpsPulse illustrative baseline (no Snowflake connection needed)
-python ai_readiness_checklist.py
+### Tier A — local, no account (recommended first run)
 
-# Score a real table (requires a Snowflake connection + optional dbt manifest)
+Generate the OpsPulse dataset once (see [`../setup/`](../setup/)), then run the script.
+It prints the Chapter 1 "active customer" divergence (four teams, four counts, one
+dataset) and scores a real raw table.
+
+```bash
+pip install -r ../setup/requirements-setup.txt
+python ../setup/opspulse_generator.py --target duckdb --out ../setup/opspulse.duckdb
+
+python ai_readiness_checklist.py
+```
+
+If no local dataset is found, the script falls back to printing the illustrative
+OpsPulse baseline (4/18) so it still runs with zero setup.
+
+### Tier B — live Snowflake table (requires a connection + optional dbt manifest)
+
+```bash
 python - <<'EOF'
 import snowflake.connector, json
 from ai_readiness_checklist import score_table

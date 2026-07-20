@@ -62,7 +62,7 @@ All four are superseded by the canonical definition above.
 
 | Tool | Server | Description |
 |------|--------|-------------|
-| `run_snowflake_select` | analytics | Execute read-only SELECT; returns up to 1000 rows |
+| `run_read_query` | analytics | Execute read-only SELECT; returns up to 1000 rows (Chapter 7 renames this to `run_snowflake_select` with full production hardening) |
 | `get_table_schema` | catalog | Return full column schema for a table FQN |
 | `get_column_lineage` | catalog | Return upstream/downstream lineage for a column |
 | `update_column_description` | operations | Write column comment (requires approval token) |

@@ -95,10 +95,10 @@ WHERE ingested_at > DATEADD('hour', -1, CURRENT_TIMESTAMP());
 -- The triage DAG's ApprovalSensor polls this variable.
 -- ============================================================
 -- To approve a pending pipeline action:
--- CALL SYSTEM$SET_AIRFLOW_VARIABLE('approval_gate_opspu_calibration', 'approved');
+-- To approve via Airflow CLI: airflow variables set approval_gate_opspu_calibration approved
 --
 -- To reject (triggers the PAUSE_FOR_REVIEW path):
--- CALL SYSTEM$SET_AIRFLOW_VARIABLE('approval_gate_opspu_calibration', 'rejected');
+-- To reject via Airflow CLI:  airflow variables set approval_gate_opspu_calibration rejected
 --
 -- In Airflow CLI:
 -- airflow variables set approval_gate_opspu_calibration approved

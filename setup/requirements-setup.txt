@@ -1,0 +1,9 @@
+# OpsPulse dataset generator — dependencies
+# Tier A (local DuckDB) needs only numpy + pandas + duckdb.
+numpy>=1.26
+pandas>=2.0
+duckdb>=1.0
+
+# Tier B (load into Snowflake) additionally uses:
+snowflake-connector-python[pandas]>=3.0
+python-dotenv>=1.0

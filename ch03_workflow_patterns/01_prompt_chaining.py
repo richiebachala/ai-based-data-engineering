@@ -137,7 +137,7 @@ async def _generate_async(
     col: dict,
 ) -> ColumnDescription:
     """Async wrapper for use with asyncio.gather in the parallelization pattern."""
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
         None,
         lambda: generate_column_description_chain(

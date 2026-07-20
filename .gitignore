@@ -27,6 +27,11 @@ credentials.json
 *.json.gz
 *.ndjson
 
+# Generated OpsPulse dataset (rebuild with setup/opspulse_generator.py)
+*.duckdb
+*.duckdb.wal
+setup/opspulse.duckdb
+
 # Office docs
 *.docx
 *.xlsx

@@ -111,7 +111,7 @@ def extend_graph_from_access_history(
     with conn.cursor() as cur:
         cur.execute("""
             SELECT
-                OBJECT_NAME(value:objectId::INT) AS source_table,
+                val.value:objectName::STRING AS source_table,
                 column_name,
                 query_id,
                 query_start_time

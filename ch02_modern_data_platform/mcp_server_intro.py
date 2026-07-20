@@ -136,5 +136,53 @@ def get_column_lineage(
     }
 
 
+@mcp.resource("capabilities://")
+def get_capability_index() -> str:
+    """
+    Return the capability index — a curated map of OpsPulse tables,
+    their descriptions, and primary use cases.
+
+    Use this before selecting a table for a query. The capability
+    index tells you which table answers which type of question, so
+    you do not have to infer table purpose from column names alone.
+    """
+    import pathlib
+    index_path = pathlib.Path(__file__).parent / "capability_index.md"
+    if index_path.exists():
+        return index_path.read_text()
+    return "Capability index not found. Check capability_index.md in the ch02 folder."
+
+
+@mcp.tool()
+def run_read_query(sql: str) -> dict:
+    """
+    Execute a read-only SELECT query against the OpsPulse Snowflake account.
+
+    Only SELECT statements are accepted. DML (INSERT/UPDATE/DELETE) and
+    DDL (CREATE/ALTER/DROP) are rejected. Returns up to 1,000 rows.
+
+    Chapter 7 builds the production version of this tool (run_snowflake_select)
+    with full audit logging, circuit-breaker support, and structured error handling.
+
+    Args:
+        sql: A complete SQL SELECT statement. Must not contain DML or DDL.
+    """
+    import re
+    forbidden = re.compile(
+        r'\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL)\b',
+        re.IGNORECASE
+    )
+    if forbidden.search(sql):
+        return {"error": "Only SELECT statements are permitted."}
+
+    conn = _get_connection()
+    with conn.cursor() as cur:
+        cur.execute(sql)
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, row)) for row in cur.fetchmany(1000)]
+
+    return {"columns": cols, "rows": rows, "row_count": len(rows)}
+
+
 if __name__ == "__main__":
     mcp.run()

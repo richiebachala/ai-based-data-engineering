@@ -161,7 +161,7 @@ def run_documentation_pipeline(
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    f"ALTER TABLE {table_fqn} MODIFY COLUMN {col_name} COMMENT '{safe_desc}'"
+                    "ALTER TABLE " + table_fqn + " MODIFY COLUMN \"" + col_name.replace('"', '""') + "\" COMMENT '" + safe_desc + "'"
                 )
             applied_comments.append(col_name)
         except Exception as e:

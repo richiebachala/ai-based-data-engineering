@@ -193,3 +193,67 @@ def fetch_sample_rows(
         content="\n".join(lines),
         metadata={"row_count": len(rows)},
     )
+
+
+# ============================================================
+# Cortex Search source (Section 5.2)
+# ============================================================
+
+def search_incident_history(
+    query: str,
+    service_name: str = "OPSPU.MARTS.INCIDENT_SEARCH_SERVICE",
+    limit: int = 5,
+) -> list[ContextChunk]:
+    """
+    Search incident history using Snowflake Cortex Search.
+
+    Uses the CortexSearchService SDK (snowflake-ml-python >= 1.5).
+    The legacy SEARCH_PREVIEW SQL function is deprecated — use the SDK.
+
+    Args:
+        query:        Natural-language search query
+        service_name: Fully-qualified Cortex Search Service name
+        limit:        Maximum number of results to return
+    """
+    try:
+        from snowflake.cortex import CortexSearchService  # snowflake-ml-python >= 1.5
+    except ImportError:
+        raise ImportError(
+            "snowflake-ml-python >= 1.5 is required for CortexSearchService. "
+            "Install with: pip install 'snowflake-ml-python>=1.5'"
+        )
+
+    import snowflake.snowpark as snowpark
+    session = snowpark.Session.builder.configs({
+        "account":   os.environ["SNOWFLAKE_ACCOUNT"],
+        "user":      os.environ["SNOWFLAKE_USER"],
+        "password":  os.environ["SNOWFLAKE_PASSWORD"],
+        "role":      os.environ.get("SNOWFLAKE_ROLE", "DATA_ENGINEER"),
+        "warehouse": os.environ.get("SNOWFLAKE_WAREHOUSE", "DEV_WH"),
+    }).create()
+
+    svc = CortexSearchService(session, service_name)
+    results = svc.search(
+        query=query,
+        columns=["ticket_id", "summary", "root_cause", "resolution", "created_at"],
+        limit=limit,
+    )
+
+    chunks = []
+    for r in results.results:
+        content = (
+            f"[{r.get('ticket_id', 'unknown')}] {r.get('summary', '')}\n"
+            f"Root cause: {r.get('root_cause', 'not documented')}\n"
+            f"Resolution: {r.get('resolution', 'not documented')}"
+        )
+        chunks.append(ContextChunk(
+            source=service_name,
+            source_type="incident_history",
+            content=content,
+            metadata={
+                "ticket_id": r.get("ticket_id"),
+                "created_at": str(r.get("created_at", "")),
+                "score":      r.get("@SCORE", 0.0),
+            },
+        ))
+    return chunks

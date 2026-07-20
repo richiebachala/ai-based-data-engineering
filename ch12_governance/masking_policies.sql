@@ -86,22 +86,24 @@ ALTER TABLE OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS
 --    until a qualified steward clears the flag (Chapter 12.6)
 -- ============================================================
 CREATE OR REPLACE ROW ACCESS POLICY rap_block_unreviewed_tables
-AS (dummy_col VARCHAR) RETURNS BOOLEAN ->
+AS (stewardship_flag VARCHAR) RETURNS BOOLEAN ->
   CASE
     WHEN CURRENT_ROLE() IN ('SYSADMIN', 'DATA_STEWARD_ROLE') THEN TRUE
     -- Block AI tools from tables flagged for stewardship review
-    WHEN SYSTEM$GET_TAG(
-        'data_governance.data_stewardship_review_required',
-        CONCAT(CURRENT_DATABASE(), '.', CURRENT_SCHEMA(), '.', CURRENT_TABLE()),
-        'table'
-    ) = 'true' THEN FALSE
+    WHEN stewardship_flag = 'true' THEN FALSE
     ELSE TRUE
   END;
--- Note: CURRENT_TABLE() is available inside RAP bodies in Snowflake.
+-- NOTE: Snowflake row access policy bodies do NOT expose a context function
+-- that returns the name of the table being scanned (there is no CURRENT_TABLE()),
+-- so a policy cannot look its own object tag up at evaluation time. The supported
+-- patterns are: (1) pass the governing value as the column argument shown above, or
+-- (2) join a centralized mapping table in the same database as the protected table.
+-- Populate stewardship_flag from the object tag via a scheduled task or the
+-- ingestion pipeline (Chapter 8).
 -- Attach this policy to any table that may require stewardship review:
 -- ALTER TABLE raw.device_telemetry
 --     ADD ROW ACCESS POLICY data_governance.rap_block_unreviewed_tables
---     ON (device_id);  -- pass any existing column as the dummy arg
+--     ON (stewardship_flag);  -- pass the governing column as the policy arg
 
 
 -- ============================================================

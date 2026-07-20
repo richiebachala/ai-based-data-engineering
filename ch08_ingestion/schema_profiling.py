@@ -1,3 +1,4 @@
+import re
 # Chapter 8: AI-Assisted Ingestion, Profiling, and Documentation
 # Section: 8.1-8.2 Schema profiling and entity detection
 # Book: AI-Based Data Engineering (Packt)
@@ -101,7 +102,7 @@ def profile_table(
     for col in columns:
         name = col["column_name"]
         dtype = col["data_type"]
-        safe_name = f'"{name}"'
+        safe_name = '"' + name.replace('"', '""') + '"'
         select_exprs += [
             f"ROUND(100.0 * COUNT_IF({safe_name} IS NULL) / COUNT(*), 2) AS null_pct_{name}",
             f"APPROX_COUNT_DISTINCT({safe_name}) AS distinct_{name}",
@@ -114,6 +115,9 @@ def profile_table(
             select_exprs.append(f"NULL AS min_{name}")
             select_exprs.append(f"NULL AS max_{name}")
 
+    # Validate table_fqn before interpolation to prevent SQL injection
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*){0,2}$', table_fqn):
+        raise ValueError(f"Invalid table FQN: {table_fqn!r}")
     sql = f"SELECT {', '.join(select_exprs)} FROM {table_fqn} SAMPLE ({sample_rows} ROWS)"
 
     with conn.cursor() as cur:

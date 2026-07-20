@@ -1,6 +1,19 @@
 # AI-Based Data Engineering — Companion Code
 
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Runs on Snowflake free trial](https://img.shields.io/badge/Snowflake-free_trial_ready-29B5E8.svg)](https://signup.snowflake.com/)
+
 Code repository for the Packt book *AI-Based Data Engineering*.
+
+> **Quickstart (no account, ~2 min):** generate the OpsPulse dataset locally and run
+> the Chapter 1 example — see [Run this first](#run-this-first--the-opspulse-dataset).
+>
+> ```bash
+> pip install -r setup/requirements-setup.txt
+> python setup/opspulse_generator.py --target duckdb --out setup/opspulse.duckdb
+> python ch01_foundations/ai_readiness_checklist.py
+> ```
 
 ## Structure
 
@@ -20,6 +33,28 @@ Code repository for the Packt book *AI-Based Data Engineering*.
 | `ch12_governance` | Chapter 12 | Content scanning, masking, stewardship workflow |
 | `ch13_team_topology` | Chapter 13 | Use-case scoring, adoption patterns |
 | `ch14_reference_architecture` | Chapter 14 | Reference architectures (prose + diagrams) |
+
+## Run this first — the OpsPulse dataset
+
+Every chapter uses the same running case study, **OpsPulse**. Before running any
+example, generate the dataset with the script in [`setup/`](setup/). There are two
+runnability tiers:
+
+- **Tier A — zero account (local):** generates OpsPulse into a local DuckDB file. No
+  Snowflake account, no API keys required to explore the data.
+- **Tier B — Snowflake free trial:** loads the same OpsPulse dataset into Snowflake so
+  the SQL / Cortex / dbt chapters run against real tables.
+
+```bash
+# Tier A — local DuckDB (fastest path)
+pip install -r setup/requirements-setup.txt
+python setup/opspulse_generator.py --target duckdb --out setup/opspulse.duckdb
+
+# Tier B — load into Snowflake (uses your .env credentials)
+python setup/opspulse_generator.py --target snowflake
+```
+
+See [`setup/README.md`](setup/README.md) for the full quickstart.
 
 ## Setup
 
@@ -81,3 +116,22 @@ python ch09_sql_generation/self_healing_pipeline.py
 ## Book
 
 *AI-Based Data Engineering* — Richie Bachala, Packt Publishing.
+
+## License
+
+This companion code is licensed under the **Apache License 2.0**. See [`LICENSE`](LICENSE).
+
+## Citation
+
+If you reference this book or its companion code, please cite:
+
+```bibtex
+@book{bachala2026aidataeng,
+  title     = {AI-Based Data Engineering},
+  author    = {Bachala, Richie},
+  year      = {2026},
+  publisher = {Packt Publishing},
+  url       = {https://github.com/richiebachala/ai-based-data-engineering}
+}
+```
+

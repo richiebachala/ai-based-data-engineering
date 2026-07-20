@@ -250,40 +250,87 @@ class SelfHealingResult:
     iteration_history: list[dict] = field(default_factory=list)
 
 
-def _generate_sql(
-    business_requirement: str,
-    table_schemas: dict,
-    business_rules: list[str],
-    complexity_tier: str,
-    feedback: str = "",
-) -> str:
-    """Generate SQL using the tier-appropriate model."""
-    model_map = {
-        "tier1": "claude-haiku-4-5",
-        "tier2": "claude-sonnet-4-5",
-        "tier3": "claude-sonnet-4-5",   # use extended thinking in production
-    }
-    model = model_map.get(complexity_tier, "claude-sonnet-4-5")
+def _format_schema_block(table_schemas: dict) -> str:
+    """Render table schemas for a prompt. Tolerant of both key conventions
+    (column_name/data_type from INFORMATION_SCHEMA, or name/type in examples)."""
+    lines = []
+    for tbl, cols in table_schemas.items():
+        lines.append(f"Table: {tbl}")
+        for c in cols:
+            name = c.get("column_name") or c.get("name") or "?"
+            dtype = c.get("data_type") or c.get("type") or "?"
+            comment = c.get("comment")
+            lines.append(f"  {name} ({dtype})" + (f"  -- {comment}" if comment else ""))
+    return "\n".join(lines)
 
-    feedback_block = f"\n\nPrevious attempt feedback:\n{feedback}" if feedback else ""
 
+def generate_safe_sql(
+    requirement: str,
+    table_schemas: dict[str, list[dict]],
+    dialect_notes: list[str] | None = None,
+) -> dict:
+    """
+    Generate Tier 1-2 SQL (no extended thinking required).
+    Use for simple filters, straightforward aggregations, and 2-table joins
+    where multi-step reasoning is not needed. Uses the fast/cheap model tier.
+    """
+    schema_block = _format_schema_block(table_schemas)
+    notes = "\n".join(f"- {n}" for n in (dialect_notes or []))
     response = client.messages.create(
-        model=model,
-        max_tokens=1500,
+        model="claude-haiku-4-5",
+        max_tokens=2048,
         system=(
             "You are a senior Snowflake data engineer. Write read-only SELECT queries. "
             "Use CTEs for clarity. Use CURRENT_DATE for date references. No DML."
         ),
         messages=[{"role": "user", "content": (
-            f"Business requirement: {business_requirement}\n"
-            f"Business rules to enforce:\n" +
-            "\n".join(f"  - {r}" for r in business_rules) +
-            f"\n\nAvailable table schemas: {table_schemas}"
-            f"{feedback_block}"
-            "\n\nGenerate the SQL query."
+            f"Generate Snowflake SQL for the following requirement:\n{requirement}\n\n"
+            f"Available schemas:\n{schema_block}\n\n"
+            + (f"Snowflake dialect notes:\n{notes}\n\n" if notes else "")
+            + "Write a complete SELECT statement with a comment at the top."
         )}]
     )
-    return response.content[0].text.strip()
+    return {"sql": response.content[0].text.strip(), "thinking_summary": None}
+
+
+def generate_complex_sql(
+    requirement: str,
+    table_schemas: dict[str, list[dict]],
+    dialect_notes: list[str] | None = None,
+) -> dict:
+    """
+    Generate Tier 3 SQL using extended thinking mode.
+    Extended thinking lets the model reason through multi-step logic before
+    producing the final SQL, which significantly reduces window-function errors.
+    """
+    schema_block = _format_schema_block(table_schemas)
+    notes = "\n".join(f"- {n}" for n in (dialect_notes or [
+        "Prefer LEFT JOIN to preserve all rows even without matching rows",
+        "Use CTEs (WITH) for readability — label each CTE with its purpose",
+    ]))
+    response = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=16000,
+        thinking={"type": "enabled", "budget_tokens": 10000},
+        system=(
+            "You are a senior Snowflake data engineer generating production-quality SQL. "
+            "You write clear, well-commented CTEs. You never write Cartesian joins. "
+            "You always use LEFT JOIN when one side may have no matching rows. No DML."
+        ),
+        messages=[{"role": "user", "content": (
+            f"Generate Snowflake SQL for the following requirement:\n{requirement}\n\n"
+            f"Available schemas:\n{schema_block}\n\n"
+            f"Snowflake dialect notes:\n{notes}\n\n"
+            "Write a complete SELECT statement using CTEs. "
+            "Add a comment at the top of each CTE explaining its purpose."
+        )}]
+    )
+    sql = next((b.text for b in response.content if hasattr(b, "text")), None)
+    if sql is None:
+        return {"error": "No text block found in model response",
+                "sql": "", "thinking_summary": None}
+    thinking = next((b.thinking for b in response.content if hasattr(b, "thinking")), None)
+    return {"sql": sql.strip(), "thinking_summary": thinking}
 
 
 def self_healing_sql_pipeline(
@@ -319,9 +366,22 @@ def self_healing_sql_pipeline(
     feedback = ""
 
     for iteration in range(1, max_iterations + 1):
-        sql = _generate_sql(
-            business_requirement, table_schemas, business_rules, complexity_tier, feedback
-        )
+        # Fold business rules (and any correction feedback) into the requirement,
+        # then route to the tier-appropriate generator.
+        rules_block = "\n".join(f"  - {r}" for r in business_rules)
+        requirement = f"{business_requirement}\n\nBusiness rules to enforce:\n{rules_block}"
+        if feedback:
+            requirement += (
+                "\n\nPREVIOUS ATTEMPT FAILED VALIDATION — FIX THESE ISSUES:\n"
+                f"{feedback}\n\n"
+                "Generate corrected SQL that addresses every issue listed above."
+            )
+
+        if complexity_tier == SQLComplexityTier.TIER3.value:
+            gen_result = generate_complex_sql(requirement, table_schemas)
+        else:
+            gen_result = generate_safe_sql(requirement, table_schemas)
+        sql = gen_result.get("sql", "")
 
         # Layer 1: structural guardrails
         guardrail_result = check_structural_guardrails(sql, allowed_tables)

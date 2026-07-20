@@ -38,7 +38,7 @@ SELECT
     notification_id,
     email_received_at,
     SNOWFLAKE.CORTEX.COMPLETE(
-        'claude-3-haiku',
+        'claude-3-5-haiku',
         CONCAT(
             'Parse this firmware notification email and return JSON with fields: ',
             'device_model (string), firmware_version (string, e.g. "v4.2.1"), ',
