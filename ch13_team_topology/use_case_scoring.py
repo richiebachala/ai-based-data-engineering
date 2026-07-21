@@ -152,7 +152,7 @@ def rank_use_cases(
 
 
 if __name__ == "__main__":
-    ranked = rank_use_cases(OPSPU_USE_CASES, sort_by="roi")
+    ranked = rank_use_cases(OPSPULSE_USE_CASES, sort_by="roi")
     print("OpsPulse AI use-case portfolio (ranked by ROI):\n")
     print(f"{'Rank':<6} {'Use Case':<40} {'Impact':>8} {'Effort':>8} {'ROI':>8}")
     print("-" * 72)
