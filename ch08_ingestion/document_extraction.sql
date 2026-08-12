@@ -6,8 +6,8 @@
 -- Complete implementations are provided where the full code is shown.
 --
 -- Bug fix C8-1: AI_PARSE_DOCUMENT requires TO_FILE() wrapper + options object
---   Correct:  AI_PARSE_DOCUMENT(TO_FILE(@stage, filename), {'mode': 'LAYOUT'})
---   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, filename)  <- deprecated signature
+--   Correct:  AI_PARSE_DOCUMENT(TO_FILE(@stage, path), {'mode': 'LAYOUT'})
+--   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, path)  <- deprecated signature
 --
 -- Bug fix C8-2: ORDER BY column_position -> ORDER BY ORDER_ID
 --   The column 'column_position' doesn't exist; use the actual column name.
@@ -20,7 +20,7 @@
 SELECT
     relative_path                 AS file_name,
     AI_PARSE_DOCUMENT(
-        TO_FILE('@opspu_calibration_stage', relative_path),
+        TO_FILE(@opspu_calibration_stage, relative_path),
         {'mode': 'LAYOUT'}
     )::VARIANT                    AS document_content
 FROM DIRECTORY(@opspu_calibration_stage)

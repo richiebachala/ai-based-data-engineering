@@ -41,6 +41,8 @@ SELECT SYSTEM$READ_OSSIE_YAML_FROM_SEMANTIC_VIEW(
 -- ============================================================
 
 -- Load your Ossie YAML onto a stage, then:
+-- NOTE: import syntax is illustrative; verify exact DDL against Snowflake
+-- documentation at time of publication (the export function above is verified).
 CREATE OR REPLACE SEMANTIC VIEW OPSPU.SEMANTICS.SV_FROM_OSSIE
   FROM OSSIE YAML '@opspu_semantic_stage/customer_model.ossie.yaml';
 
