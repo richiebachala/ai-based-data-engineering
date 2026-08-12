@@ -8,7 +8,7 @@
 """
 GraphRAG search integration for OpsPulse.
 
-Microsoft GraphRAG (open-source, July 2024):
+Microsoft GraphRAG (open-source, July 2024; v3.1+ Jan 2026):
   - Extracts a knowledge graph from unstructured documentation
   - Local search: entity-specific questions (use the entity neighborhood)
   - Global search: portfolio questions (use community summaries)
@@ -16,12 +16,11 @@ Microsoft GraphRAG (open-source, July 2024):
 Entity types for data engineering:
   table, column, metric, team, process, policy, failure_mode
 
-Bug fixes applied:
-  C6-1: Output file paths corrected (graphrag v0.3+ uses output/ not artifacts/)
-  C6-2: read_indexer_reports() called with 3 args (reports_dir, entity_df, entity_embedding_df)
-  C6-3: LocalSearchMixedContext given the correct vector_store, not a DataFrame
-  C6-4: ChatOpenAI() includes api_key and model
-  C6-5: LocalSearch() includes llm_params and context_builder_params
+GraphRAG 3.x migration notes (from 0.3.x):
+  - Config uses LiteLLM routing (type: chat + model_provider), not fnllm
+  - Output: flat parquet files (entities.parquet, not create_final_entities.parquet)
+  - Timestamp nesting removed from output directory
+  - LanceDB vector store moved to graphrag-vectors package
 """
 
 import os
@@ -39,9 +38,22 @@ client = anthropic.Anthropic()
 # ============================================================
 
 GRAPHRAG_CONFIG = """
-# GraphRAG configuration for OpsPulse documentation corpus
+# GraphRAG 3.x configuration for OpsPulse documentation corpus
 # Save as: opspu_graphrag/settings.yaml
-# Run: python -m graphrag index --root opspu_graphrag/
+# Run: graphrag index --root opspu_graphrag/
+
+models:
+  chat:
+    type: chat
+    model_provider: openai
+    model: gpt-4o-mini
+    api_key: ${GRAPHRAG_API_KEY}
+
+  embeddings:
+    type: embedding
+    model_provider: openai
+    model: text-embedding-3-small
+    api_key: ${GRAPHRAG_API_KEY}
 
 entity_extraction:
   entity_types:
@@ -53,16 +65,21 @@ entity_extraction:
     - policy
     - failure_mode
 
+chunks:
+  size: 300
+  overlap: 30
+
 community_reports:
   max_length: 2000
 
-chunk_size: 300        # tokens per chunk
-chunk_overlap: 30      # overlap for continuity
+storage:
+  type: file
+  base_dir: output
 """
 
 
 # ============================================================
-# GraphRAG query wrappers (corrected for graphrag v0.3+)
+# GraphRAG query wrappers (graphrag 3.1+)
 # ============================================================
 
 def run_graphrag_local_search(
@@ -74,13 +91,11 @@ def run_graphrag_local_search(
 
     Local search: best for entity-specific questions
     ("What columns does fct_device_anomalies expose?")
-
-    Bug fix C6-1: GraphRAG v0.3+ writes output to output/, not artifacts/
     """
     import subprocess
     result = subprocess.run(
         [
-            "python", "-m", "graphrag", "query",
+            "graphrag", "query",
             "--root", graphrag_root,
             "--method", "local",
             "--query", query,
@@ -106,7 +121,7 @@ def run_graphrag_global_search(
     import subprocess
     result = subprocess.run(
         [
-            "python", "-m", "graphrag", "query",
+            "graphrag", "query",
             "--root", graphrag_root,
             "--method", "global",
             "--query", query,
@@ -220,9 +235,9 @@ def evaluate_graph_answer_grounding(
 
 
 if __name__ == "__main__":
-    print("GraphRAG setup:")
-    print("1. Install: pip install graphrag>=0.3")
-    print("2. Create index: python -m graphrag index --root opspu_graphrag/")
+    print("GraphRAG setup (v3.1+):")
+    print("1. Install: pip install 'graphrag>=3.1'")
+    print("2. Create index: graphrag index --root opspu_graphrag/")
     print("3. Query: run_graphrag_local_search('What tables feed fct_device_anomalies?')")
     print()
     print("GraphRAG config template:")

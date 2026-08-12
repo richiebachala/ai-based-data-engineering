@@ -20,7 +20,7 @@ not on the AssistantAgent. This is the corrected implementation.
 try:
     import autogen
 except ImportError:
-    raise ImportError("pip install autogen-agentchat>=0.2")
+    raise ImportError("pip install 'ag2~=0.2'  # AG2 is the active fork of AutoGen")
 
 import os
 
