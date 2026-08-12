@@ -1,29 +1,27 @@
 -- Chapter 8: AI-Assisted Ingestion, Profiling, and Documentation
--- Section: 8.4 Unstructured sources — PARSE_DOCUMENT + CORTEX.COMPLETE
+-- Section: 8.4 Unstructured sources — AI_PARSE_DOCUMENT + AI_COMPLETE
 -- Book: AI-Based Data Engineering (Packt)
 --
 -- NOTE: Code snippets marked with ... are illustrative stubs from the book text.
 -- Complete implementations are provided where the full code is shown.
 --
--- Bug fix C8-1: PARSE_DOCUMENT requires 3 arguments
---   Correct:  SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, filename, {'mode': 'LAYOUT'})
---   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, filename)  <- missing mode arg
+-- Bug fix C8-1: AI_PARSE_DOCUMENT requires TO_FILE() wrapper + options object
+--   Correct:  AI_PARSE_DOCUMENT(TO_FILE(@stage, filename), {'mode': 'LAYOUT'})
+--   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, filename)  <- deprecated signature
 --
 -- Bug fix C8-2: ORDER BY column_position -> ORDER BY ORDER_ID
 --   The column 'column_position' doesn't exist; use the actual column name.
 
 
 -- ============================================================
--- 1. PARSE_DOCUMENT: extract text from PDF calibration reports
---    (Bug fix C8-1: mode argument is required)
+-- 1. AI_PARSE_DOCUMENT: extract text from PDF calibration reports
+--    (Bug fix C8-1: TO_FILE() wrapper required)
 -- ============================================================
 SELECT
     relative_path                 AS file_name,
-    -- Correct: PARSE_DOCUMENT requires 3 arguments
-    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(
-        @opspu_calibration_stage,
-        relative_path,
-        {'mode': 'LAYOUT'}         -- required third argument
+    AI_PARSE_DOCUMENT(
+        TO_FILE('@opspu_calibration_stage', relative_path),
+        {'mode': 'LAYOUT'}
     )::VARIANT                    AS document_content
 FROM DIRECTORY(@opspu_calibration_stage)
 WHERE relative_path LIKE '%.pdf'
@@ -37,8 +35,8 @@ LIMIT 100;
 SELECT
     notification_id,
     email_received_at,
-    SNOWFLAKE.CORTEX.COMPLETE(
-        'claude-3-5-haiku',
+    AI_COMPLETE(
+        'claude-haiku-4-5',
         CONCAT(
             'Parse this firmware notification email and return JSON with fields: ',
             'device_model (string), firmware_version (string, e.g. "v4.2.1"), ',
