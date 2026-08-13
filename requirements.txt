@@ -18,7 +18,7 @@ pydantic>=2.0
 # Graph / vector
 networkx>=3.0
 neo4j>=5.0
-graphrag>=3.1
+graphrag>=0.3,<1.0  # pinned: 1.0+ removed the query API used in ch06
 rank-bm25>=0.2
 
 # Snowflake

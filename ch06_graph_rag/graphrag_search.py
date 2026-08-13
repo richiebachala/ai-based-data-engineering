@@ -8,7 +8,7 @@
 """
 GraphRAG search integration for OpsPulse.
 
-Microsoft GraphRAG (open-source, July 2024; v3.1+ Jan 2026):
+Microsoft GraphRAG (open-source, July 2024):
   - Extracts a knowledge graph from unstructured documentation
   - Local search: entity-specific questions (use the entity neighborhood)
   - Global search: portfolio questions (use community summaries)
@@ -16,11 +16,11 @@ Microsoft GraphRAG (open-source, July 2024; v3.1+ Jan 2026):
 Entity types for data engineering:
   table, column, metric, team, process, policy, failure_mode
 
-GraphRAG 3.x migration notes (from 0.3.x):
-  - Config uses LiteLLM routing (type: chat + model_provider), not fnllm
-  - Output: flat parquet files (entities.parquet, not create_final_entities.parquet)
-  - Timestamp nesting removed from output directory
-  - LanceDB vector store moved to graphrag-vectors package
+Version note: This code pins graphrag 0.3.x deliberately. GraphRAG 3.x
+(current as of mid-2026) rewrites the config format, output paths, and
+Python SDK. The 0.3.x pin is chosen for API stability and reproducibility;
+the CLI wrappers and hybrid retrieval patterns in this chapter remain valid
+regardless of the underlying graphrag version.
 """
 
 import os
@@ -38,22 +38,12 @@ client = anthropic.Anthropic()
 # ============================================================
 
 GRAPHRAG_CONFIG = """
-# GraphRAG 3.x configuration for OpsPulse documentation corpus
+# GraphRAG 0.3.x configuration for OpsPulse documentation corpus
 # Save as: opspu_graphrag/settings.yaml
-# Run: graphrag index --root opspu_graphrag/
-
-models:
-  chat:
-    type: chat
-    model_provider: openai
-    model: gpt-4o-mini
-    api_key: ${GRAPHRAG_API_KEY}
-
-  embeddings:
-    type: embedding
-    model_provider: openai
-    model: text-embedding-3-small
-    api_key: ${GRAPHRAG_API_KEY}
+# Run: python -m graphrag index --root opspu_graphrag/
+#
+# Note: GraphRAG 3.x (current mid-2026) uses a different config format
+# (LiteLLM routing). This pin is deliberate — see module docstring.
 
 entity_extraction:
   entity_types:
@@ -65,21 +55,16 @@ entity_extraction:
     - policy
     - failure_mode
 
-chunks:
-  size: 300
-  overlap: 30
-
 community_reports:
   max_length: 2000
 
-storage:
-  type: file
-  base_dir: output
+chunk_size: 300
+chunk_overlap: 30
 """
 
 
 # ============================================================
-# GraphRAG query wrappers (graphrag 3.1+)
+# GraphRAG query wrappers (graphrag 0.3.x)
 # ============================================================
 
 def run_graphrag_local_search(
@@ -95,7 +80,7 @@ def run_graphrag_local_search(
     import subprocess
     result = subprocess.run(
         [
-            "graphrag", "query",
+            "python", "-m", "graphrag", "query",
             "--root", graphrag_root,
             "--method", "local",
             "--query", query,
@@ -121,7 +106,7 @@ def run_graphrag_global_search(
     import subprocess
     result = subprocess.run(
         [
-            "graphrag", "query",
+            "python", "-m", "graphrag", "query",
             "--root", graphrag_root,
             "--method", "global",
             "--query", query,
@@ -235,10 +220,13 @@ def evaluate_graph_answer_grounding(
 
 
 if __name__ == "__main__":
-    print("GraphRAG setup (v3.1+):")
-    print("1. Install: pip install 'graphrag>=3.1'")
-    print("2. Create index: graphrag index --root opspu_graphrag/")
+    print("GraphRAG setup (pinned to 0.3.x for API stability):")
+    print("1. Install: pip install 'graphrag>=0.3,<1.0'")
+    print("2. Create index: python -m graphrag index --root opspu_graphrag/")
     print("3. Query: run_graphrag_local_search('What tables feed fct_device_anomalies?')")
+    print()
+    print("Note: GraphRAG 3.x (current mid-2026) uses a different config format.")
+    print("This pin is deliberate — see module docstring for rationale.")
     print()
     print("GraphRAG config template:")
     print(GRAPHRAG_CONFIG)

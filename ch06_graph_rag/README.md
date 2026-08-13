@@ -26,6 +26,13 @@
 - **C6-4**: `ChatOpenAI()` includes `api_key` and `model` parameters
 - **C6-5**: `LocalSearch()` includes `llm_params` and `context_builder_params`
 
+## Version pin rationale
+
+This chapter pins `graphrag>=0.3,<1.0`. GraphRAG 3.x (current mid-2026) rewrites the config
+format, output paths, and Python SDK. The 0.3.x pin is chosen for API stability and
+reproducibility. The pedagogical patterns (CLI wrappers, hybrid retrieval, grounding eval)
+remain valid regardless of the underlying graphrag version.
+
 ## Setup
 
 ```bash
