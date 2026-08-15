@@ -380,7 +380,7 @@ def write_snowflake(tables: dict[str, pd.DataFrame]) -> None:
     except Exception:
         pass
 
-    database = os.getenv("SNOWFLAKE_DATABASE", "OPSPULSE")
+    database = os.getenv("SNOWFLAKE_DATABASE", "OPSPU")
     schema = os.getenv("SNOWFLAKE_SCHEMA", "PUBLIC")
     conn = snowflake.connector.connect(
         account=os.environ["SNOWFLAKE_ACCOUNT"],

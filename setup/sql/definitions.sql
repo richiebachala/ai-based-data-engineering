@@ -89,3 +89,36 @@ SELECT
 FROM iot_telemetry t
 JOIN iot_devices d ON d.device_id = t.device_id
 GROUP BY d.model;
+
+-- =============================================================================
+-- MARTS schema: enriched, AI-ready fact views
+-- These join raw tables with CRM/ERP context to produce the columns referenced
+-- in the book's AI chapter examples (Ch3-Ch9, Ch12).
+-- =============================================================================
+
+CREATE SCHEMA IF NOT EXISTS MARTS;
+
+-- MARTS.fct_active_customers: the reconciled active customer list enriched
+-- with region, account tier, recent order counts, and engagement dates.
+-- This is the primary table used in notebook examples across the book.
+CREATE OR REPLACE VIEW MARTS.fct_active_customers AS
+SELECT
+    f.customer_id,
+    c.region                                            AS region_code,
+    c.segment                                           AS customer_segment,
+    COALESCE(crm.tier, 'Bronze')                        AS account_tier,
+    COALESCE(o30.order_count, 0)                        AS total_orders_30d,
+    o30.last_order_date,
+    c.created_at                                        AS active_since
+FROM fct_active_customers f
+JOIN erp_customers c USING (customer_id)
+LEFT JOIN crm_accounts crm USING (customer_id)
+LEFT JOIN (
+    SELECT
+        customer_id,
+        COUNT(*)           AS order_count,
+        MAX(order_date)    AS last_order_date
+    FROM erp_orders
+    WHERE order_date >= DATE '2026-06-01'
+    GROUP BY customer_id
+) o30 USING (customer_id);
