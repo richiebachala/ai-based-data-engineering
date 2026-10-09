@@ -54,7 +54,7 @@ def _is_insufficient_context(response_text: str) -> tuple[bool, str]:
 def attempt_generation(
     system_message: str,
     user_message: str,
-    model: str = "claude-sonnet-4-5",
+    model: str = "claude-sonnet-5",
 ) -> str:
     """Single generation attempt. Returns the raw response text."""
     response = client.messages.create(
@@ -71,7 +71,7 @@ def prompt_repair_loop(
     user_message: str,
     context_fetcher: Callable[[str], str],
     max_retries: int = 2,
-    model: str = "claude-sonnet-4-5",
+    model: str = "claude-sonnet-5",
 ) -> RepairResult:
     """
     Generation with repair loop.

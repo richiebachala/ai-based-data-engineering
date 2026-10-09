@@ -8,7 +8,7 @@
 | `knowledge_graph_networkx.py` | Build lineage graph from dbt manifest + Snowflake ACCESS_HISTORY. Impact analysis, hallucination detection. |
 | `neo4j_export.py` | Export NetworkX graph to Neo4j for production-scale traversal. Idempotent MERGE pattern. |
 | `cypher_impact_query.cypher` | Cypher queries: blast radius, column-level lineage, team ownership, setup script |
-| `graphrag_search.py` | GraphRAG local/global search wrappers. Hybrid graph+vector retrieval. Grounding eval. |
+| `graphrag_search.py` | GraphRAG 3.x local/global search via `graphrag.api`. Hybrid graph+vector retrieval. Grounding eval. |
 
 ## Key concepts
 
@@ -18,20 +18,13 @@
 - **Hybrid retrieval**: Stage 1 graph traversal (structural); Stage 2 vector fill-in (semantic richness)
 - **Relationship hallucination**: verify structural claims against the ground-truth graph
 
-## Bug fixes applied
+## Version
 
-- **C6-1**: GraphRAG output paths corrected (`output/` not `artifacts/` in v0.3+)
-- **C6-2**: `read_indexer_reports()` called with 3 args: `(reports_dir, entity_df, entity_embedding_df)`
-- **C6-3**: `LocalSearchMixedContext` given the correct vector_store (not a DataFrame)
-- **C6-4**: `ChatOpenAI()` includes `api_key` and `model` parameters
-- **C6-5**: `LocalSearch()` includes `llm_params` and `context_builder_params`
-
-## Version pin rationale
-
-This chapter pins `graphrag>=0.3,<1.0`. GraphRAG 3.x (current mid-2026) rewrites the config
-format, output paths, and Python SDK. The 0.3.x pin is chosen for API stability and
-reproducibility. The pedagogical patterns (CLI wrappers, hybrid retrieval, grounding eval)
-remain valid regardless of the underlying graphrag version.
+Targets `graphrag>=3.2,<4` (Python 3.11-3.13). Earlier revisions of this repo pinned 0.3.x and
+built the search context by hand (`create_final_*.parquet`, `LanceDBVectorStore`, `ChatOpenAI`).
+GraphRAG 3.x replaces all of that with `graphrag.api.local_search` / `global_search` plus
+`settings.yaml`, and writes flat `output/*.parquet`. Note that GraphRAG ignores unknown
+settings keys silently; a renamed key from an old guide simply has no effect.
 
 ## Setup
 
@@ -44,8 +37,8 @@ python knowledge_graph_networkx.py
 python neo4j_export.py
 
 # GraphRAG indexing
-pip install graphrag>=0.3
-python -m graphrag init --root ./opspu_graphrag
+pip install "graphrag>=3.2,<4"
+graphrag init --root ./opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small
 # Add dbt descriptions, runbooks, incident post-mortems to opspu_graphrag/input/
-python -m graphrag index --root ./opspu_graphrag
+graphrag index --root ./opspu_graphrag
 ```

@@ -82,7 +82,7 @@ data_steward = Agent(
         "data by sensitivity (public, internal, confidential, restricted)."
     ),
     tools=[catalog_query_tool, pii_pattern_tool],
-    llm=ChatAnthropic(model="claude-sonnet-4-5"),
+    llm=ChatAnthropic(model="claude-sonnet-5"),
     verbose=False,
 )
 
@@ -95,7 +95,7 @@ documentation_writer = Agent(
         "data definitions understandable without sacrificing precision."
     ),
     tools=[catalog_query_tool, sample_data_tool],
-    llm=ChatAnthropic(model="claude-sonnet-4-5"),
+    llm=ChatAnthropic(model="claude-sonnet-5"),
     verbose=False,
 )
 

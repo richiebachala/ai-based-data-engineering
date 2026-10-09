@@ -205,7 +205,7 @@ def detect_entities(
         sample_str = f"\nSample rows (3 rows):\n{json.dumps(sample_rows[:3], indent=2)}"
 
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=800,
         system=(
             "You are an enterprise data architect performing entity detection. "

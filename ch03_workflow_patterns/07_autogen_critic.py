@@ -36,7 +36,7 @@ LLM_CONFIG_GENERATOR = {
 
 LLM_CONFIG_CRITIC = {
     "config_list": [{
-        "model":   "claude-sonnet-4-5",
+        "model":   "claude-sonnet-5",
         "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
     }],
     "temperature": 0.3,

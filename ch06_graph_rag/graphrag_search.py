@@ -16,11 +16,10 @@ Microsoft GraphRAG (open-source, July 2024):
 Entity types for data engineering:
   table, column, metric, team, process, policy, failure_mode
 
-Version note: This code pins graphrag 0.3.x deliberately. GraphRAG 3.x
-(current as of mid-2026) rewrites the config format, output paths, and
-Python SDK. The 0.3.x pin is chosen for API stability and reproducibility;
-the CLI wrappers and hybrid retrieval patterns in this chapter remain valid
-regardless of the underlying graphrag version.
+Version note: targets graphrag 3.x. Search goes through the public graphrag.api
+(local_search / global_search); models, retrieval tuning, and the vector store are
+configured in settings.yaml, and the index is written as flat output/*.parquet files.
+Models are called through LiteLLM, so model_provider: anthropic works without a proxy.
 """
 
 import os
@@ -38,85 +37,103 @@ client = anthropic.Anthropic()
 # ============================================================
 
 GRAPHRAG_CONFIG = """
-# GraphRAG 0.3.x configuration for OpsPulse documentation corpus
-# Save as: opspu_graphrag/settings.yaml
-# Run: python -m graphrag index --root opspu_graphrag/
-#
-# Note: GraphRAG 3.x (current mid-2026) uses a different config format
-# (LiteLLM routing). This pin is deliberate — see module docstring.
+# GraphRAG 3.x: values to change in the settings.yaml written by
+#   graphrag init --root opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small
+# Keep the generated keys (auth_method, retry, storage). Unknown keys are ignored
+# silently, so check spelling: load_config(...) and print the section you edited.
 
-entity_extraction:
-  entity_types:
-    - table
-    - column
-    - metric
-    - team
-    - process
-    - policy
-    - failure_mode
+chunking:
+  size: 300
+  overlap: 50
 
-community_reports:
-  max_length: 2000
+extract_graph:
+  entity_types: [table, column, metric, data_product, team, process, policy, failure_mode]
+  max_gleanings: 1
 
-chunk_size: 300
-chunk_overlap: 30
+local_search:
+  text_unit_prop: 0.5
+  community_prop: 0.1
+  top_k_entities: 10
+  top_k_relationships: 10
+  max_context_tokens: 12000
 """
 
 
 # ============================================================
-# GraphRAG query wrappers (graphrag 0.3.x)
+# GraphRAG query wrappers (graphrag 3.x public API)
 # ============================================================
 
-def run_graphrag_local_search(
+INDEX_TABLES = ["entities", "relationships", "communities", "community_reports", "text_units"]
+COMMUNITY_LEVEL = 2
+
+
+def load_graphrag_index(graphrag_root: str) -> dict:
+    """Load the flat parquet tables written by `graphrag index` (output/*.parquet)."""
+    out_dir = Path(graphrag_root) / "output"
+    missing = [t for t in INDEX_TABLES if not (out_dir / f"{t}.parquet").exists()]
+    if missing:
+        raise FileNotFoundError(
+            f"Missing {missing} under {out_dir}. Run 'graphrag index --root {graphrag_root}' first."
+        )
+    tables = {t: pd.read_parquet(out_dir / f"{t}.parquet") for t in INDEX_TABLES}
+    cov = out_dir / "covariates.parquet"   # present only when extract_claims is enabled
+    tables["covariates"] = pd.read_parquet(cov) if cov.exists() else None
+    return tables
+
+
+async def run_graphrag_local_search(
     query: str,
     graphrag_root: str = "./opspu_graphrag",
 ) -> str:
     """
-    Run a GraphRAG local search query via the CLI.
-
     Local search: best for entity-specific questions
     ("What columns does fct_device_anomalies expose?")
     """
-    import subprocess
-    result = subprocess.run(
-        [
-            "python", "-m", "graphrag", "query",
-            "--root", graphrag_root,
-            "--method", "local",
-            "--query", query,
-        ],
-        capture_output=True,
-        text=True,
+    import graphrag.api as api
+    from graphrag.config.load_config import load_config
+
+    config = load_config(Path(graphrag_root))
+    t = load_graphrag_index(graphrag_root)
+    response, _context = await api.local_search(
+        config=config,
+        entities=t["entities"],
+        communities=t["communities"],
+        community_reports=t["community_reports"],
+        text_units=t["text_units"],
+        relationships=t["relationships"],
+        covariates=t["covariates"],
+        community_level=COMMUNITY_LEVEL,
+        response_type="single paragraph",
+        query=query,
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"GraphRAG local search failed: {result.stderr}")
-    return result.stdout
+    return str(response)
 
 
-def run_graphrag_global_search(
+async def run_graphrag_global_search(
     query: str,
     graphrag_root: str = "./opspu_graphrag",
+    dynamic_selection: bool = True,
 ) -> str:
     """
-    Run a GraphRAG global search query via the CLI.
-
     Global search: best for portfolio-level questions
     ("What are the main failure modes in the OpsPulse data platform?")
     """
-    import subprocess
-    result = subprocess.run(
-        [
-            "python", "-m", "graphrag", "query",
-            "--root", graphrag_root,
-            "--method", "global",
-            "--query", query,
-        ],
-        capture_output=True,
-        text=True,
+    import graphrag.api as api
+    from graphrag.config.load_config import load_config
+
+    config = load_config(Path(graphrag_root))
+    t = load_graphrag_index(graphrag_root)
+    response, _context = await api.global_search(
+        config=config,
+        entities=t["entities"],
+        communities=t["communities"],
+        community_reports=t["community_reports"],
+        community_level=COMMUNITY_LEVEL,
+        dynamic_community_selection=dynamic_selection,
+        response_type="multiple paragraphs",
+        query=query,
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"GraphRAG global search failed: {result.stderr}")
-    return result.stdout
+    return str(response)
 
 
 # ============================================================
@@ -192,7 +209,7 @@ def evaluate_graph_answer_grounding(
     the retrieved context. A strict grounding evaluator.
     """
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=512,
         system=(
             "You are a factual grounding evaluator for data engineering AI systems. "
@@ -220,13 +237,12 @@ def evaluate_graph_answer_grounding(
 
 
 if __name__ == "__main__":
-    print("GraphRAG setup (pinned to 0.3.x for API stability):")
-    print("1. Install: pip install 'graphrag>=0.3,<1.0'")
-    print("2. Create index: python -m graphrag index --root opspu_graphrag/")
-    print("3. Query: run_graphrag_local_search('What tables feed fct_device_anomalies?')")
+    print("GraphRAG 3.x setup:")
+    print("1. Install: pip install 'graphrag>=3.2,<4'   (Python 3.11-3.13)")
+    print("2. Init:    graphrag init --root opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small")
+    print("3. Edit settings.yaml (template below), add docs to opspu_graphrag/input/")
+    print("4. Index:   graphrag index --root opspu_graphrag")
+    print("5. Query:   asyncio.run(run_graphrag_local_search('What tables feed fct_device_anomalies?'))")
     print()
-    print("Note: GraphRAG 3.x (current mid-2026) uses a different config format.")
-    print("This pin is deliberate — see module docstring for rationale.")
-    print()
-    print("GraphRAG config template:")
+    print("settings.yaml values to change:")
     print(GRAPHRAG_CONFIG)

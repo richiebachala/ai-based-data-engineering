@@ -35,18 +35,33 @@ LIMIT 100;
 SELECT
     notification_id,
     email_received_at,
+    -- response_format returns a schema-valid OBJECT. A "return only JSON" prompt
+    -- alone often comes back fenced in Markdown, which TRY_PARSE_JSON turns into NULL.
     AI_COMPLETE(
-        'claude-haiku-4-5',
-        CONCAT(
-            'Parse this firmware notification email and return JSON with fields: ',
-            'device_model (string), firmware_version (string, e.g. "v4.2.1"), ',
-            'release_date (YYYY-MM-DD), ',
-            'severity (one of: critical, major, minor, informational), ',
-            'affected_device_ids (array of strings, empty array if broadcast). ',
-            'Return only JSON, no explanation. Email: ',
-            email_body
-        )
-    )::VARIANT                    AS parsed_firmware_update
+        model  => 'claude-haiku-4-5',
+        prompt => CONCAT(
+            'Extract the firmware update details from this notification email. ',
+            'release_date is YYYY-MM-DD; affected_device_ids is empty if the update is a broadcast. ',
+            'Email: ', email_body
+        ),
+        response_format => {
+            'type': 'json',
+            'schema': {
+                'type': 'object',
+                'properties': {
+                    'device_model':        {'type': 'string'},
+                    'firmware_version':    {'type': 'string'},
+                    'release_date':        {'type': 'string'},
+                    'severity':            {'type': 'string',
+                                            'enum': ['critical', 'major', 'minor', 'informational']},
+                    'affected_device_ids': {'type': 'array', 'items': {'type': 'string'}}
+                },
+                'required': ['device_model', 'firmware_version', 'release_date',
+                             'severity', 'affected_device_ids'],
+                'additionalProperties': false
+            }
+        }
+    )                             AS parsed_firmware_update
 FROM raw.firmware_notifications
 WHERE email_body IS NOT NULL;    -- idempotency: only process rows with content
 

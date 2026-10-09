@@ -19,7 +19,7 @@ No amount of 'please don't modify data' in the system prompt is as effective
 as a server that physically cannot modify data.
 """
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.mcpserver import MCPServer, Context
 import snowflake.connector
 import hashlib
 import json
@@ -28,7 +28,7 @@ import re
 import os
 from datetime import datetime, timezone
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="opspu-analytics",
     instructions=(
         "You are connected to the OpsPulse analytics layer. "

@@ -67,7 +67,7 @@ def build_ch03():
         "Two of the five composable workflow patterns from Chapter 3:\n\n"
         "1. **Routing** — a classifier dispatches each pipeline alert to the specialist handler "
         "that matches its anomaly type. Uses `claude-haiku-4-5` for the narrow taxonomy task, "
-        "`claude-sonnet-4-5` for deeper analysis.\n"
+        "`claude-sonnet-5` for deeper analysis.\n"
         "2. **Evaluator-Optimizer** — a generator produces an output, an evaluator scores it, "
         "and the generator refines based on feedback until the quality bar is met.\n\n"
         "**Prerequisites:** run `code/setup/opspulse_generator.py --target snowflake` to create "
@@ -121,7 +121,7 @@ def build_ch03():
         "- `primary_signal` — the data point that drove the classification\n"
         "- `recommended_action` — first step for the on-call engineer\n\n"
         "**Key design choice:** the classifier uses `claude-haiku-4-5` (fast, cheap, narrow "
-        "taxonomy task); specialist handlers use `claude-sonnet-4-5` (quality analysis). "
+        "taxonomy task); specialist handlers use `claude-sonnet-5` (quality analysis). "
         "You only pay sonnet prices when the input is worth analyzing.",
         "m3n4o5p6",
     ))
@@ -174,7 +174,7 @@ def build_ch03():
         "    return TriageClassification(**tool_call.input)\n\n\n"
         "def handle_volume_drop(alert: dict, clf: TriageClassification) -> dict:\n"
         "    response = client.messages.create(\n"
-        "        model='claude-sonnet-4-5', max_tokens=500,\n"
+        "        model='claude-sonnet-5', max_tokens=500,\n"
         "        system=(\n"
         "            'You are a data reliability engineer investigating row count drops. '\n"
         "            'Identify the most likely root cause and provide specific remediation '\n"
@@ -189,7 +189,7 @@ def build_ch03():
         "    return {'handler': 'volume_drop', 'analysis': response.content[0].text}\n\n\n"
         "def handle_quality_failure(alert: dict, clf: TriageClassification) -> dict:\n"
         "    response = client.messages.create(\n"
-        "        model='claude-sonnet-4-5', max_tokens=500,\n"
+        "        model='claude-sonnet-5', max_tokens=500,\n"
         "        system=(\n"
         "            'You are a data reliability engineer investigating data quality failures. '\n"
         "            'Analyze null rate, uniqueness, or referential integrity issues and '\n"
@@ -1038,7 +1038,7 @@ def build_ch07():
         "| **Read-only analytics** | `analytics_server` | Accidental DML from a broad-permission agent |\n"
         "| **Lineage check** | `catalog_server` | Schema changes without impact assessment |\n"
         "| **Platform capabilities** | `catalog_server` | Agents calling endpoints that don't exist |\n\n"
-        "The server-level `instructions=` string in `FastMCP` is the highest-priority behavioral "
+        "The server-level `instructions=` string in `MCPServer` is the highest-priority behavioral "
         "constraint — it applies before any tool call and sets the model's operating context for "
         "the entire session. See `code/ch07_mcp_tools/` for the full three-server implementation.",
         "w3x4y5z6",

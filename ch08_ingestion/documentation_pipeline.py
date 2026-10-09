@@ -89,7 +89,7 @@ def evaluate_description_loop(
 
         # Evaluator: sonnet for better judgment on nuanced criteria
         ev = client.messages.create(
-            model="claude-sonnet-4-5", max_tokens=256, system=EVALUATOR_PROMPT,
+            model="claude-sonnet-5", max_tokens=256, system=EVALUATOR_PROMPT,
             tools=[{"name": "evaluate", "description": "Return evaluation for a column description.",
                     "input_schema": DescriptionEvaluation.model_json_schema()}],
             tool_choice={"type": "tool", "name": "evaluate"},

@@ -15,7 +15,7 @@ prompts:
   - file://prompts/sql_generation/v2/prompt.json   # current production version
 
 providers:
-  - id: anthropic:messages:claude-sonnet-4-5
+  - id: anthropic:messages:claude-sonnet-5
     config:
       max_tokens: 1024
   - id: anthropic:messages:claude-haiku-4-5

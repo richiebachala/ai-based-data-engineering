@@ -104,7 +104,7 @@ async def _single_impact_vote(
 
     def _call():
         response = client.messages.create(
-            model="claude-sonnet-4-5",
+            model="claude-sonnet-5",
             max_tokens=400,
             system="You are a data impact analyst. Assess whether a schema change breaks downstream consumers.",
             tools=[{

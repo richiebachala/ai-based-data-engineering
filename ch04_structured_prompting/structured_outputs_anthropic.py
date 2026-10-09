@@ -72,7 +72,7 @@ def generate_structured_sql(
     The response is always a valid SQLGenerationOutput, never a string.
     """
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=1024,
         system=(
             "You are a senior Snowflake data engineer. Write read-only SELECT queries. "

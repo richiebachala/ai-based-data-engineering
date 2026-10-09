@@ -175,7 +175,7 @@ def generate_complex_tests(
     Returns a list of SQL strings (each should return 0 rows on pass).
     """
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=1000,
         system=(
             "You are a dbt data quality engineer. Write SQL tests that return "

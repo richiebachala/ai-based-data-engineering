@@ -23,9 +23,7 @@ from datetime import datetime, timedelta, timezone
 
 import anthropic
 import snowflake.connector
-from airflow.decorators import dag, task
-from airflow.models import Variable
-from airflow.sensors.base import PokeReturnValue
+from airflow.sdk import PokeReturnValue, Variable, dag, task
 from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum
@@ -101,7 +99,7 @@ def llm_triage_failure(
     Used only when deterministic routing cannot classify the failure.
     """
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=800,
         system=(
             "You are a data reliability engineer triaging Airflow pipeline failures. "

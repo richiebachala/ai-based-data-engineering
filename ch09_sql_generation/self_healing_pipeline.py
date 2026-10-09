@@ -213,7 +213,7 @@ def evaluate_sql_plausibility(
 ) -> SQLEvaluation:
     """LLM-as-judge plausibility check against business rules."""
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=600,
         system=(
             "You are a data engineer evaluating generated SQL for correctness. "
@@ -309,9 +309,10 @@ def generate_complex_sql(
         "Use CTEs (WITH) for readability — label each CTE with its purpose",
     ]))
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=16000,
-        thinking={"type": "enabled", "budget_tokens": 10000},
+        thinking={"type": "adaptive"},       # Sonnet 5+ rejects manual budget_tokens (400)
+        output_config={"effort": "high"},
         system=(
             "You are a senior Snowflake data engineer generating production-quality SQL. "
             "You write clear, well-commented CTEs. You never write Cartesian joins. "

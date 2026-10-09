@@ -20,7 +20,8 @@ because it is passed in the tool INPUT (request.approval_token), not stored
 in a JSON-serialized intermediate state.
 """
 
-from mcp.server.fastmcp import FastMCP, Context
+from mcp.server.mcpserver import MCPServer, Context
+from mcp.server.mcpserver.exceptions import ToolError
 import snowflake.connector
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -32,7 +33,7 @@ import re
 import os
 from datetime import datetime, timezone
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="opspu-operations",
     instructions=(
         "You are connected to the OpsPulse operations layer. "
@@ -67,7 +68,8 @@ def _safe_identifier(name: str) -> str:
     """Validate a Snowflake identifier to prevent SQL injection."""
     # Allow only alphanumeric, underscore, and dot (for FQN)
     if not re.match(r'^[A-Za-z_][A-Za-z0-9_.]*$', name):
-        raise ValueError(f"Invalid identifier: {name!r}")
+        # ToolError: in an mcp v2 tool handler only a ToolError message reaches the agent.
+        raise ToolError(f"Invalid identifier: {name!r}. Use letters, digits, underscores, and dots only.")
     return name
 
 
@@ -142,6 +144,12 @@ def update_column_description(
     Args:
         request: UpdateColumnDescriptionRequest with all change details
     """
+    # Validate inputs before anything else: a malformed identifier is rejected with a
+    # clear ToolError on the first call, so no human is asked to approve a change that
+    # can never run and no privileged connection is opened for bad input.
+    safe_fqn = _safe_identifier(request.table_fqn)
+    safe_col = _safe_identifier(request.column_name)
+
     # The approval_token survives JSON serialization because it is passed
     # in the tool input (request.approval_token), not in a serialized state.
     # Bug fix C7-1: this is the correct pattern.
@@ -178,8 +186,6 @@ def update_column_description(
 
     conn = _get_privileged_connection()
     try:
-        safe_fqn    = _safe_identifier(request.table_fqn)
-        safe_col    = _safe_identifier(request.column_name)
         safe_comment = request.new_description.replace("'", "''")
         with conn.cursor() as cur:
             cur.execute(f"""

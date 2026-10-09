@@ -110,7 +110,7 @@ def llm_judge_eval(
         expected_block = f"\nExpected answer: {expected_answer}"
 
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=400,
         system=(
             "You are an AI output evaluator. Score on:\n"
@@ -342,7 +342,9 @@ def enforce_token_budget(
         return input_text
 
     # Rough estimate: 1 token ≈ 4 characters
-    estimated_tokens = len(input_text) // 4
+    # ~3 chars/token: Claude 4.7+ models (Sonnet 5 included) emit ~30% more tokens than
+    # the old 4-chars rule assumed. Use the token-counting API for exact counts.
+    estimated_tokens = len(input_text) // 3
 
     if estimated_tokens > budget.max_input_tokens:
         message = (
@@ -362,8 +364,8 @@ def enforce_token_budget(
 
 # Anthropic pricing (approximate 2025; check current pricing at implementation time)
 ANTHROPIC_PRICING = {
-    "claude-haiku-4-5":  {"input": 0.80 / 1e6, "output": 4.00 / 1e6, "cache_read": 0.08 / 1e6},
-    "claude-sonnet-4-5": {"input": 3.00 / 1e6, "output": 15.00 / 1e6, "cache_read": 0.30 / 1e6},
+    "claude-haiku-4-5": {"input": 1.00 / 1e6, "output": 5.00 / 1e6, "cache_read": 0.10 / 1e6},
+    "claude-sonnet-5":  {"input": 2.00 / 1e6, "output": 10.00 / 1e6, "cache_read": 0.20 / 1e6},
 }
 
 MONTHLY_BUDGETS_USD: dict[str, float] = {

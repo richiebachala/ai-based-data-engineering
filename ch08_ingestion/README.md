@@ -6,7 +6,7 @@
 | File | Description |
 |------|-------------|
 | `schema_profiling.py` | Dynamic SQL profiling (single pass), anomaly detection, AI entity detection with PII classification |
-| `document_extraction.sql` | PARSE_DOCUMENT, CORTEX.COMPLETE extraction, INFER_SCHEMA, MERGE-ON-LOAD idempotent pattern |
+| `document_extraction.sql` | AI_PARSE_DOCUMENT, AI_COMPLETE extraction, INFER_SCHEMA, MERGE-ON-LOAD idempotent pattern |
 | `documentation_pipeline.py` | Five-step documentation-as-byproduct pipeline: profile → classify → document → apply → lineage |
 
 ## Key concepts

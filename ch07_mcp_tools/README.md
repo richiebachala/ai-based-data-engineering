@@ -5,7 +5,7 @@
 
 | File | Description |
 |------|-------------|
-| `catalog_server.py` | Read-only FastMCP server: schema resources + search tools. The agent's first call before any SQL. |
+| `catalog_server.py` | Read-only MCP server (`MCPServer`, mcp SDK v2): schema resources + search tools. The agent's first call before any SQL. |
 | `analytics_server.py` | SQL execution server with injection detection, keyword blocklist, row cap, and audit logging. |
 | `operations_server.py` | Approval-gated write server: two-call HMAC token pattern for column description updates. |
 

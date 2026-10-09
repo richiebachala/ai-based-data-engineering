@@ -8,7 +8,7 @@
 | `iceberg_time_travel.sql` | Iceberg table DDL (Horizon-native + Open Catalog cross-engine), schema history, time travel queries |
 | `lineage_openlineage.py` | OpenLineage event emission for ingestion and transformation jobs |
 | `capability_index.md` | Platform capability index — the “always in context” routing artifact for AI agents |
-| `mcp_server_intro.py` | Minimal FastMCP catalog server introducing the MCP pattern (full stack in Ch07) |
+| `mcp_server_intro.py` | Minimal MCP catalog server (official SDK v2 `MCPServer`) introducing the MCP pattern (full stack in Ch07) |
 
 ## Key concepts
 

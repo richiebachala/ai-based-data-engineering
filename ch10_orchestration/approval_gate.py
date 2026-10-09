@@ -22,9 +22,7 @@ Used in:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from airflow.decorators import dag, task
-from airflow.models import Variable
-from airflow.sensors.base import PokeReturnValue
+from airflow.sdk import PokeReturnValue, Variable, dag, task
 from typing import Optional
 
 
@@ -57,7 +55,7 @@ def await_approval(
         when the variable is set to either value
       - is_done=False while waiting
     """
-    decision = Variable.get(approval_key, default_var=None)
+    decision = Variable.get(approval_key, default=None)
 
     if decision in ("approved", "rejected"):
         # Clean up the variable so the next run starts fresh

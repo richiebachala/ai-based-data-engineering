@@ -16,12 +16,12 @@ descriptions is a behavioral instruction to the model. Ambiguous documentation
 produces ambiguous model behavior.
 """
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 import snowflake.connector
 import os
 
 # Create the MCP server
-mcp = FastMCP(
+mcp = MCPServer(
     name="opspu-catalog",
     instructions=(
         "You are connected to the OpsPulse data catalog. "

@@ -1,5 +1,5 @@
 # Core AI providers
-anthropic>=0.25
+anthropic>=1.13          # adaptive thinking + output_config (Ch9); tested 1.13
 openai>=1.30
 
 # LangChain / LangGraph
@@ -18,7 +18,7 @@ pydantic>=2.0
 # Graph / vector
 networkx>=3.0
 neo4j>=5.0
-graphrag>=0.3,<1.0  # pinned: 1.0+ removed the query API used in ch06
+graphrag>=3.2,<4         # graphrag.api local/global search (Ch6); Python 3.11-3.13; tested 3.3
 rank-bm25>=0.2
 
 # Snowflake
@@ -26,15 +26,15 @@ snowflake-connector-python>=3.0
 snowflake-snowpark-python>=1.15
 
 # MCP
-mcp>=1.28,<2
-fastmcp>=0.1
+mcp>=2,<3                # official SDK v2: MCPServer, ToolError (Ch2, Ch7); tested 2.3
+fastmcp>=4,<5            # standalone PrefectHQ package; Client used in Ch3; tested 4.1
 
 # Web framework (MCP servers)
 fastapi>=0.110
 uvicorn>=0.29
 
 # Orchestration
-apache-airflow>=3.0
+apache-airflow>=3.2      # airflow.sdk exports TaskInstance from 3.2 (Ch10)
 
 # OpenLineage
 # Pin <1.0: v1.0 changed openlineage.client.run → openlineage.client.event_v2
@@ -42,6 +42,7 @@ openlineage-python<1.0
 openlineage-airflow<1.0
 
 # dbt
+# dbt v1 (Core) shown here. dbt v2 (GA Sep 2026, formerly Fusion) installs as `pip install dbt`.
 dbt-core>=1.8
 dbt-snowflake>=1.8
 

@@ -88,7 +88,7 @@ def classify_alert(alert_payload: dict) -> TriageClassification:
 def handle_volume_drop(alert: dict, classification: TriageClassification) -> dict:
     """Specialist: investigate row count drops."""
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=600,
         system=(
             "You are a data reliability engineer investigating row count drops. "
@@ -107,7 +107,7 @@ def handle_volume_drop(alert: dict, classification: TriageClassification) -> dic
 def handle_schema_change(alert: dict, classification: TriageClassification) -> dict:
     """Specialist: investigate schema changes."""
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=600,
         system=(
             "You are a data reliability engineer investigating schema changes. "
@@ -125,7 +125,7 @@ def handle_schema_change(alert: dict, classification: TriageClassification) -> d
 def handle_quality_failure(alert: dict, classification: TriageClassification) -> dict:
     """Specialist: investigate data quality failures."""
     response = client.messages.create(
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         max_tokens=600,
         system=(
             "You are a data reliability engineer investigating data quality failures. "

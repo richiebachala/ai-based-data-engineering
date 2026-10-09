@@ -17,13 +17,13 @@ This server is SAFE to give to agents with broad latitude:
   - Tools: read-only SQL; no mutations
 """
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 import snowflake.connector
 import json
 import os
 from typing import Optional
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="opspu-catalog",
     instructions=(
         "You are connected to the OpsPulse data catalog. "

@@ -161,7 +161,7 @@ if __name__ == "__main__":
         context_chunks=[DemoChunk()],
         output=DemoOutput(sql="SELECT COUNT(*) FROM fct_active_customers WHERE region_code = 'EMEA'",
                           confidence="high"),
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-5",
         workflow_step="sql_generation",
     )
     print(f"Logged event_id: {event_id}")

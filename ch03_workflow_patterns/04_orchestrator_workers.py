@@ -67,7 +67,7 @@ def orchestrate_impact_analysis(
     and define the sub-task for each worker.
     """
     response = client.messages.create(
-        model="claude-sonnet-4-5",   # moderate reasoning for decomposition
+        model="claude-sonnet-5",   # moderate reasoning for decomposition
         max_tokens=800,
         system=(
             "You are a data architect performing impact analysis. "
