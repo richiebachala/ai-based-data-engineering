@@ -63,6 +63,19 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Two chapters need their own environment because their libraries pin versions that
+conflict with the main set:
+
+| Chapter | File | Why separate |
+|---|---|---|
+| Ch3 CrewAI example | `requirements-crewai.txt` | crewai 1.x pins `mcp<2`; Ch7 uses `mcp` 2.x |
+| Ch6 GraphRAG | `requirements-graphrag.txt` | graphrag 3.x and crewai 1.x pin incompatible `json-repair` |
+
+```bash
+python -m venv .venv-graphrag && source .venv-graphrag/bin/activate
+pip install -r requirements-graphrag.txt
+```
+
 ## Configuration
 
 Copy `.env.example` to `.env` and fill in your credentials:

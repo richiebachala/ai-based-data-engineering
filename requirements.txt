@@ -10,7 +10,8 @@ langgraph>=0.2
 
 # Agent frameworks
 ag2~=0.2
-crewai>=0.1
+# CrewAI (Ch3) is in requirements-crewai.txt: crewai 1.x pins mcp<2, which conflicts with
+# the mcp 2.x used here. Install it in a separate virtual environment.
 
 # Structured outputs
 pydantic>=2.0
@@ -18,7 +19,8 @@ pydantic>=2.0
 # Graph / vector
 networkx>=3.0
 neo4j>=5.0
-graphrag>=3.2,<4         # graphrag.api local/global search (Ch6); Python 3.11-3.13; tested 3.3
+# GraphRAG (Ch6) is in requirements-graphrag.txt: graphrag 3.x and crewai 1.x pin
+# incompatible json-repair versions. Install it in a separate virtual environment.
 rank-bm25>=0.2
 
 # Snowflake

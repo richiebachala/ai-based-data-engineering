@@ -135,7 +135,7 @@ def assemble_context(
     dropped     = []
 
     for chunk in prioritized:
-        chunk_tokens = getattr(chunk, 'token_estimate', len(chunk.content) // 4)
+        chunk_tokens = getattr(chunk, 'token_estimate', len(chunk.content) // 3)
         if tokens_used + chunk_tokens <= token_budget:
             included.append(chunk)
             tokens_used += chunk_tokens
@@ -159,7 +159,7 @@ if __name__ == "__main__":
             self.source_type = source_type
             self.content = content
             self.rrf_score = rrf_score
-            self.token_estimate = len(content) // 4
+            self.token_estimate = len(content) // 3
 
     chunks = [
         FakeChunk("FCT_ACTIVE_CUSTOMERS", "schema", "customer_id VARCHAR..." * 20),

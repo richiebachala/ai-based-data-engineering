@@ -35,7 +35,7 @@ class ContextChunk:
 
     def __post_init__(self):
         # Rough estimate: 1 token ≈ 4 characters
-        self.token_estimate = max(1, len(self.content) // 4)
+        self.token_estimate = max(1, len(self.content) // 3)  # ~3 chars/token (Claude 4.7+ tokenizer)
 
 
 @dataclass

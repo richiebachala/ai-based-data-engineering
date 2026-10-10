@@ -42,7 +42,7 @@ class RetrievedChunk:
     token_estimate: int          = 0
 
     def __post_init__(self):
-        self.token_estimate = max(1, len(self.content) // 4)
+        self.token_estimate = max(1, len(self.content) // 3)  # ~3 chars/token (Claude 4.7+ tokenizer)
 
 
 # ============================================================

@@ -694,7 +694,7 @@ def build_ch05():
         "    metadata:       dict = field(default_factory=dict)\n\n"
         "    def __post_init__(self):\n"
         "        # Rough estimate: 1 token ≈ 4 characters\n"
-        "        self.token_estimate = max(1, len(self.content) // 4)\n\n\n"
+        "        self.token_estimate = max(1, len(self.content) // 3)\n\n\n"
         "def schema_rows_to_chunk(df) -> ContextChunk:\n"
         "    \"\"\"Convert INFORMATION_SCHEMA columns DataFrame to a ContextChunk.\"\"\"\n"
         "    lines = []\n"

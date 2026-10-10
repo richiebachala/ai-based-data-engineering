@@ -22,12 +22,12 @@ try:
     from crewai import Agent, Task, Crew, Process
     from crewai.tools import tool
 except ImportError:
-    raise ImportError("pip install crewai>=0.1")
+    raise ImportError("pip install -r requirements-crewai.txt  (separate venv; crewai pins mcp<2)")
 
-try:
-    from langchain_anthropic import ChatAnthropic
-except ImportError:
-    raise ImportError("pip install langchain-anthropic>=0.1")
+# CrewAI 1.x takes a model string or crewai.LLM, not a LangChain chat model:
+# Agent(llm=ChatAnthropic(...)) fails validation before any call is made.
+from crewai import LLM
+sonnet = LLM(model="anthropic/claude-sonnet-5")
 
 import json
 
@@ -82,7 +82,7 @@ data_steward = Agent(
         "data by sensitivity (public, internal, confidential, restricted)."
     ),
     tools=[catalog_query_tool, pii_pattern_tool],
-    llm=ChatAnthropic(model="claude-sonnet-5"),
+    llm=sonnet,
     verbose=False,
 )
 
@@ -95,7 +95,7 @@ documentation_writer = Agent(
         "data definitions understandable without sacrificing precision."
     ),
     tools=[catalog_query_tool, sample_data_tool],
-    llm=ChatAnthropic(model="claude-sonnet-5"),
+    llm=sonnet,
     verbose=False,
 )
 

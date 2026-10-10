@@ -1,0 +1,9 @@
+# Chapter 3 CrewAI example (08_crewai_roles.py). Use a separate virtual environment:
+#   python -m venv .venv-crewai && source .venv-crewai/bin/activate
+#   pip install -r requirements-crewai.txt
+# crewai 1.x pins mcp<2 and an older json-repair, so it cannot share an environment with
+# requirements.txt (mcp 2.x) or requirements-graphrag.txt. Resolved and tested with
+# crewai 1.15.27 on Python 3.13.
+crewai>=1.15,<2
+anthropic>=1.13
+python-dotenv>=1.0

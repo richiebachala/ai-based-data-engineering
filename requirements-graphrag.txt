@@ -1,0 +1,13 @@
+# Chapter 6 GraphRAG examples (graphrag_search.py, knowledge_graph_networkx.py,
+# neo4j_export.py). Use a separate virtual environment:
+#   python -m venv .venv-graphrag && source .venv-graphrag/bin/activate
+#   pip install -r requirements-graphrag.txt
+# graphrag 3.x requires Python 3.11-3.13 and pins json-repair>=0.63, which conflicts with
+# crewai 1.x. Resolved and tested with graphrag 3.3.0 on Python 3.13.
+graphrag>=3.2,<4
+anthropic>=1.13
+networkx>=3.0
+neo4j>=5.0
+pandas>=2.0
+pyarrow>=14.0
+pyyaml>=6.0
