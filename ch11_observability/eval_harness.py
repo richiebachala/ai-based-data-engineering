@@ -362,10 +362,12 @@ def enforce_token_budget(
     return input_text
 
 
-# Anthropic pricing (approximate 2025; check current pricing at implementation time)
+# Anthropic pricing (approximate; check current pricing at time of implementation)
+# cache_write is billed at ~1.25x the input rate on the first write of a cached prefix;
+# omitting it underestimates the first-run cost of the documentation pipeline.
 ANTHROPIC_PRICING = {
-    "claude-haiku-4-5": {"input": 1.00 / 1e6, "output": 5.00 / 1e6, "cache_read": 0.10 / 1e6},
-    "claude-sonnet-5":  {"input": 2.00 / 1e6, "output": 10.00 / 1e6, "cache_read": 0.20 / 1e6},
+    "claude-haiku-4-5": {"input": 1.00 / 1e6, "output": 5.00 / 1e6, "cache_read": 0.10 / 1e6, "cache_write": 1.25 / 1e6},
+    "claude-sonnet-5":  {"input": 2.00 / 1e6, "output": 10.00 / 1e6, "cache_read": 0.20 / 1e6, "cache_write": 2.50 / 1e6},
 }
 
 MONTHLY_BUDGETS_USD: dict[str, float] = {
@@ -396,13 +398,15 @@ def compute_monthly_cost(
         total_input   = sum(r.get("input_tokens",      0) for r in records)
         total_output  = sum(r.get("output_tokens",     0) for r in records)
         cache_hits    = sum(r.get("cache_read_tokens", 0) for r in records)
+        cache_writes  = sum(r.get("cache_write_tokens", 0) for r in records)
         model         = records[0].get("model", "claude-haiku-4-5")
         pricing       = ANTHROPIC_PRICING.get(model, ANTHROPIC_PRICING["claude-haiku-4-5"])
 
         cost = (
             total_input  * pricing["input"]  +
             total_output * pricing["output"] +
-            cache_hits   * pricing["cache_read"]
+            cache_hits   * pricing["cache_read"] +
+            cache_writes * pricing["cache_write"]
         )
         budget = MONTHLY_BUDGETS_USD.get(component, 10.00)
         util   = cost / budget if budget > 0 else 0

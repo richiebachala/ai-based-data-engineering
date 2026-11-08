@@ -50,7 +50,7 @@ dbt-snowflake>=1.8
 
 # Observability
 opentelemetry-sdk>=1.24
-opentelemetry-exporter-otlp-proto-grpc>=1.24
+opentelemetry-exporter-otlp-proto-http>=1.24   # Ch11: Langfuse ingests OTLP over HTTP only
 langfuse>=4.0
 deepeval>=0.20
 

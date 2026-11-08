@@ -5,41 +5,45 @@
 
 | File | Description |
 |------|-------------|
-| `use_case_scoring.py` | Impact/effort scoring model for prioritizing AI use cases. Includes OpsPulse portfolio rankings. |
+| `use_case_scoring.py` | Impact/effort scoring rubric from Section 13.1. Reproduces the OpsPulse worked-example table and asserts the totals match the chapter. |
+
+Run it with no dependencies beyond the standard library:
+
+```bash
+python use_case_scoring.py
+```
 
 ## Key concepts
 
 - **Use-case funnel**: not every data task is a good AI candidate; score before committing
-- **Impact dimensions**: time savings, quality improvement, adoption signal, cost reduction
-- **Effort dimensions**: context readiness, integration effort, eval complexity, risk level
-- **ROI = impact / effort**: the ordering principle for your adoption roadmap
-- **Team topologies**: AI Platform team (infrastructure), Domain DE teams (application), Governance team (oversight)
+- **Impact dimensions** (1–5 each, /20): time saved, quality improvement, risk reduction, strategic value
+- **Effort dimensions** (1–5 each, /20): data readiness, AI complexity, compliance overhead, integration effort
+- **Quadrant**: impact and effort are "high" above 10/20 → Quick win, Strategic, Fill-in, Low priority
+- **Team topologies** (Section 13.3): platform team, stream-aligned domain teams, enabling team
 
-## Recommended starting order (OpsPulse)
+## OpsPulse roadmap (Section 13.1 worked example)
 
-1. **Column description auto-generation** (Ch8) — highest ROI, lowest risk
-2. **Pipeline failure triage** (Ch10) — high team satisfaction, replaces repetitive work
-3. **Lineage impact analysis** (Ch6) — prevents the most expensive incidents
-4. **SQL generation assistant** (Ch9) — requires semantic layer investment first
+1. **Finance period-close assistant** — Quick win (18/20 impact, 9/20 effort) — first pilot
+2. **Procurement document extraction** — Quick win (12/20, 6/20) — runs in parallel
+3. **HR workforce analytics copilot** — Strategic (17/20, 18/20) — Month 4, after security review
+4. **Supply chain anomaly detection** — Strategic (15/20, 14/20) — Month 6
+5. **Regulatory compliance Q&A** — Fill-in (10/20, 8/20) — kit library RAG starter
 
 ## Team topology (Section 13.3)
 
 ```
-AI Platform Team
+Platform team
   └─ MCP server infrastructure (Ch07)
   └─ Eval and observability stack (Ch11)
   └─ Context pipeline (Ch05)
   └─ Governance controls (Ch12)
 
-Domain Data Engineering Teams
-  └─ Workflow patterns (Ch03)
-  └─ Ingestion + documentation pipeline (Ch08)
-  └─ SQL generation (Ch09)
-  └─ Orchestration + triage (Ch10)
+Stream-aligned domain teams (finance, procurement, HR, supply chain)
+  └─ Use-case delivery from the kit library (Ch13.2)
+  └─ Domain eval sets and golden queries (Ch11)
 
-Governance Team
-  └─ Classification + stewardship (Ch12.6)
-  └─ Access policies (Ch12.2)
+Enabling team
+  └─ Coaching domain teams onto the kits and playbook
   └─ Eval criteria and pass thresholds (Ch11)
 ```
 

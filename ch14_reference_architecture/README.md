@@ -5,12 +5,16 @@
 
 Chapter 14 synthesizes the full book into:
 - Three reference architectures (solo engineer, team, enterprise)
-- Four domain case studies (customer 360, finance close, inventory, catalog security)
+- Four domain case studies (customer 360, finance close, inventory, ops triage / catalog security)
 - Forward-looking standard vs. hype assessment
 - Human accountability framework
 
-No new executable code is introduced in this chapter. The chapter draws on
-patterns from all previous chapters and demonstrates how they combine at scale.
+The chapter draws on patterns from all previous chapters and demonstrates how
+they combine at scale. One new script accompanies Section 14.3:
+
+| File | Description |
+|------|-------------|
+| `ossie_semantic_roundtrip.sql` | Creates a semantic view for `fct_active_customers` from Apache Ossie YAML and exports it back, using `SYSTEM$CREATE_SEMANTIC_VIEW_FROM_OSSIE_YAML` and `SYSTEM$READ_OSSIE_YAML_FROM_SEMANTIC_VIEW` (preview feature, available to all accounts). Requires the Tier B OpsPulse load from `code/setup`. |
 
 ## Reference architecture tiers
 
@@ -35,7 +39,7 @@ Full context pipeline (Ch05) + Eval CI (Ch11) + Approval gates (Ch10)
 ```
 All tiers + Governance (Ch12) + Multi-domain MCP (Ch07) + Observability (Ch11)
   └ Formal eval criteria per use case, per domain
-  └ EU AI Act compliance logging (Article 14 + 15)
+  └ EU AI Act compliance logging (Article 14 + 15; Annex III duties from 2 Dec 2027)
   └ Trigger: production use case proves value; second business domain onboards
 ```
 
@@ -52,7 +56,8 @@ All tiers + Governance (Ch12) + Multi-domain MCP (Ch07) + Observability (Ch11)
 
 | Pattern | Assessment |
 |---------|------------|
-| MCP (Ch07) | Standard — adopted by OpenAI + Google DeepMind in 2025 |
+| MCP (Ch07) | Standard — adopted by OpenAI + Google DeepMind in 2025; stateless core since `2026-07-28` |
+| Ossie semantic interchange (Ch14) | Becoming standard — Snowflake + dbt Core v1.12 read/write; lossy for complex metrics |
 | Eval-as-CI (Ch11) | Standard — same rigor as unit tests for deterministic code |
 | Structured outputs (Ch04) | Standard — API-level enforcement since Aug 2024 |
 | Context engineering (Ch05) | Standard — the durable skill this book is built around |

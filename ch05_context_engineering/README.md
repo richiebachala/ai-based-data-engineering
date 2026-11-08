@@ -29,7 +29,7 @@
 ## Cache cost model
 
 ```
-claude-sonnet-5 (approximate 2025 pricing):
+claude-sonnet-5 (approximate pricing; check current rates):
   Standard input:  $3.00/M tokens
   Cache write:     $3.75/M tokens (1.25× — paid once per TTL)
   Cache read:      $0.30/M tokens (0.10× — 90% savings)

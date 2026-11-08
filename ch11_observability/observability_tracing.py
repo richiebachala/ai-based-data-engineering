@@ -9,22 +9,24 @@
 OpenTelemetry tracing for AI pipeline components.
 
 Uses GenAI semantic conventions for standardized span attributes:
-  gen_ai.system, gen_ai.request.model, gen_ai.usage.input_tokens,
+  gen_ai.provider.name, gen_ai.request.model, gen_ai.usage.input_tokens,
   gen_ai.usage.output_tokens + custom OpsPulse attributes.
 
 This makes traces portable across Langfuse, Braintrust, and any
-OTLP-compatible backend.
+OTLP-compatible backend. The GenAI conventions are still pre-stable;
+keep attribute names in one place so a rename is a one-line change.
 """
 
 try:
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 except ImportError:
-    raise ImportError("pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc")
+    raise ImportError("pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
 
 import anthropic
+import base64
 import os
 from datetime import datetime, timezone
 from typing import Optional, Callable
@@ -37,17 +39,25 @@ from functools import wraps
 
 def setup_ai_tracing(
     service_name: str,
-    otlp_endpoint: str = None,
+    langfuse_host: str = None,
 ) -> trace.Tracer:
     """
     Configure OpenTelemetry tracing for AI pipeline components.
-    Sends spans to Langfuse or any OTLP-compatible backend.
+    Langfuse ingests OTLP over HTTP (not gRPC) at /api/public/otel,
+    authenticated with Basic auth built from the project key pair.
     """
-    otlp_endpoint = otlp_endpoint or os.environ.get(
-        "OTLP_ENDPOINT", "http://localhost:4317"
-    )
+    langfuse_host = langfuse_host or os.environ.get("LANGFUSE_HOST", "http://localhost:3000")
+    auth = base64.b64encode(
+        f"{os.environ['LANGFUSE_PUBLIC_KEY']}:{os.environ['LANGFUSE_SECRET_KEY']}".encode()
+    ).decode()
     provider = TracerProvider()
-    exporter = OTLPSpanExporter(endpoint=otlp_endpoint)
+    exporter = OTLPSpanExporter(
+        endpoint=f"{langfuse_host}/api/public/otel/v1/traces",
+        headers={
+            "Authorization": f"Basic {auth}",
+            "x-langfuse-ingestion-version": "4",  # current ingestion path; spans appear without delay
+        },
+    )
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     return trace.get_tracer(service_name)
@@ -84,7 +94,7 @@ def traced_llm_call(
     input_tokens, output_tokens, cache_read_tokens.
 
     Span attributes follow GenAI semantic conventions:
-      gen_ai.system = "anthropic"
+      gen_ai.provider.name = "anthropic"
       gen_ai.request.model = model name
       gen_ai.usage.input_tokens = token count
       gen_ai.usage.output_tokens = token count
@@ -93,7 +103,7 @@ def traced_llm_call(
 
     with tracer.start_as_current_span(f"llm.{component}") as span:
         # GenAI semantic convention attributes
-        span.set_attribute("gen_ai.system",             "anthropic")
+        span.set_attribute("gen_ai.provider.name",      "anthropic")  # was gen_ai.system
         span.set_attribute("gen_ai.request.model",      model)
         span.set_attribute("gen_ai.request.max_tokens", max_tokens)
         span.set_attribute("opspu.component",           component)
@@ -113,17 +123,20 @@ def traced_llm_call(
             )
 
             usage = response.usage
-            cached = getattr(usage, "cache_read_input_tokens", 0)
+            cached = getattr(usage, "cache_read_input_tokens", 0) or 0
+            written = getattr(usage, "cache_creation_input_tokens", 0) or 0
 
             # Record token usage in span
             span.set_attribute("gen_ai.usage.input_tokens",  usage.input_tokens)
             span.set_attribute("gen_ai.usage.output_tokens", usage.output_tokens)
             span.set_attribute("opspu.cache_read_tokens",    cached)
+            span.set_attribute("opspu.cache_write_tokens",   written)
 
             return response.content[0].text, {
                 "input_tokens":      usage.input_tokens,
                 "output_tokens":     usage.output_tokens,
                 "cache_read_tokens": cached,
+                "cache_write_tokens": written,
                 "model":             model,
                 "component":         component,
             }
@@ -192,11 +205,10 @@ class UsageRecord:
 
 if __name__ == "__main__":
     print("OpenTelemetry AI tracing setup:")
-    print(f"  OTLP endpoint: {os.environ.get('OTLP_ENDPOINT', 'http://localhost:4317')}")
     print(f"  Langfuse host: {os.environ.get('LANGFUSE_HOST', 'not set')}")
     print("")
     print("To send traces to Langfuse, set:")
     print("  LANGFUSE_SECRET_KEY=<your-secret-key>")
     print("  LANGFUSE_PUBLIC_KEY=<your-public-key>")
     print("  LANGFUSE_HOST=https://cloud.langfuse.com")
-    print("  OTLP_ENDPOINT=https://cloud.langfuse.com/api/public/otel")
+    print("  (spans export over OTLP/HTTP to $LANGFUSE_HOST/api/public/otel/v1/traces)")
