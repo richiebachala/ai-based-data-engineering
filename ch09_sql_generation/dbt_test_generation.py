@@ -146,13 +146,13 @@ def _tests_to_yaml(model_name: str, tests: list[DbtTest]) -> str:
     ]
     for col, col_tests in by_col.items():
         lines.append(f"      - name: {col}")
-        lines.append(f"        data_tests:  # dbt v1.5+; use 'tests:' for v1.4 and earlier")
+        lines.append(f"        data_tests:  # dbt v1.8+; use 'tests:' for v1.7 and earlier")
         for t in col_tests:
             if t.options:
                 lines.append(f"          - {t.test_type}:")
+                lines.append("              arguments:  # dbt v1.10.5+: test inputs nest under arguments")
                 for k, v in t.options.items():
-                    val_str = json.dumps(v) if not isinstance(v, str) else f"\n              - {chr(10).join(v)}"
-                    lines.append(f"              {k}: {v}")
+                    lines.append(f"                {k}: {json.dumps(v)}")
             else:
                 lines.append(f"          - {t.test_type}")
 

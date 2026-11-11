@@ -64,7 +64,7 @@ def generate_sql_openai_structured(
     Returns a typed SQLGenerationOutput instance — no json.loads() needed.
     """
     completion = client.beta.chat.completions.parse(
-        model="gpt-4o",
+        model="gpt-6.1-sol",
         messages=[
             {
                 "role": "system",
@@ -83,7 +83,7 @@ def generate_sql_openai_structured(
             }
         ],
         response_format=SQLGenerationOutput,   # Pydantic model → OpenAI enforces schema
-        max_tokens=1024,
+        max_completion_tokens=1024,
     )
     # .parsed returns a typed SQLGenerationOutput instance
     return completion.choices[0].message.parsed
@@ -103,7 +103,7 @@ def classify_alert_json_mode(
     Parse manually into the Pydantic model after the call.
     """
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-6-luna",
         messages=[
             {
                 "role": "system",
@@ -122,7 +122,7 @@ def classify_alert_json_mode(
             }
         ],
         response_format={"type": "json_object"},
-        max_tokens=300,
+        max_completion_tokens=300,
     )
     raw = json.loads(response.choices[0].message.content)
     return AnomalyClassification(**raw)
@@ -147,7 +147,7 @@ def generate_sql_openai_cached(
     OpenAI caches at a 50% discount on cached input tokens.
     """
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-6.1-sol",
         messages=[
             {
                 "role": "system",
@@ -161,7 +161,7 @@ def generate_sql_openai_cached(
                 )
             }
         ],
-        max_tokens=1024,
+        max_completion_tokens=1024,
         response_format={"type": "json_object"},
     )
     usage     = response.usage

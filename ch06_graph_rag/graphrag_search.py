@@ -38,7 +38,7 @@ client = anthropic.Anthropic()
 
 GRAPHRAG_CONFIG = """
 # GraphRAG 3.x: values to change in the settings.yaml written by
-#   graphrag init --root opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small
+#   graphrag init --root opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small
 # Keep the generated keys (auth_method, retry, storage). Unknown keys are ignored
 # silently, so check spelling: load_config(...) and print the section you edited.
 
@@ -239,7 +239,7 @@ def evaluate_graph_answer_grounding(
 if __name__ == "__main__":
     print("GraphRAG 3.x setup:")
     print("1. Install: pip install 'graphrag>=3.2,<4'   (Python 3.11-3.13)")
-    print("2. Init:    graphrag init --root opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small")
+    print("2. Init:    graphrag init --root opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small")
     print("3. Edit settings.yaml (template below), add docs to opspu_graphrag/input/")
     print("4. Index:   graphrag index --root opspu_graphrag")
     print("5. Query:   asyncio.run(run_graphrag_local_search('What tables feed fct_device_anomalies?'))")

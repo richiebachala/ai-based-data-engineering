@@ -38,7 +38,7 @@ python neo4j_export.py
 
 # GraphRAG indexing
 pip install -r ../requirements-graphrag.txt   # separate venv; see top-level README
-graphrag init --root ./opspu_graphrag --model gpt-4.1 --embedding text-embedding-3-small
+graphrag init --root ./opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small
 # Add dbt descriptions, runbooks, incident post-mortems to opspu_graphrag/input/
 graphrag index --root ./opspu_graphrag
 ```
