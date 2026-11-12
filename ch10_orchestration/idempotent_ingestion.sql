@@ -2,10 +2,12 @@
 -- Section: 10.4 Idempotent ingestion patterns
 -- Book: AI-Based Data Engineering (Packt)
 --
--- NOTE: Code snippets marked with ... are illustrative stubs from the book text.
--- Complete implementations are provided where the full code is shown.
+-- NOTE: Code snippets marked with ... are illustrative stubs from
+-- the book text. Complete implementations are provided where the
+-- full code is shown.
 --
--- Idempotency property: running the load N times produces the same result as running it once.
+-- Idempotency property: running the load N times produces the same result as
+-- running it once.
 -- Required for safe retries — which is what the triage DAG triggers.
 
 
@@ -95,10 +97,12 @@ WHERE ingested_at > DATEADD('hour', -1, CURRENT_TIMESTAMP());
 -- The triage DAG's ApprovalSensor polls this variable.
 -- ============================================================
 -- To approve a pending pipeline action:
--- To approve via Airflow CLI: airflow variables set approval_gate_opspu_calibration approved
+-- To approve via Airflow CLI:
+--   airflow variables set approval_gate_opspu_calibration approved
 --
 -- To reject (triggers the PAUSE_FOR_REVIEW path):
--- To reject via Airflow CLI:  airflow variables set approval_gate_opspu_calibration rejected
+-- To reject via Airflow CLI:
+--   airflow variables set approval_gate_opspu_calibration rejected
 --
 -- In Airflow CLI:
 -- airflow variables set approval_gate_opspu_calibration approved

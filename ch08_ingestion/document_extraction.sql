@@ -2,12 +2,14 @@
 -- Section: 8.4 Unstructured sources — AI_PARSE_DOCUMENT + AI_COMPLETE
 -- Book: AI-Based Data Engineering (Packt)
 --
--- NOTE: Code snippets marked with ... are illustrative stubs from the book text.
--- Complete implementations are provided where the full code is shown.
+-- NOTE: Code snippets marked with ... are illustrative stubs from
+-- the book text. Complete implementations are provided where the
+-- full code is shown.
 --
 -- Bug fix C8-1: AI_PARSE_DOCUMENT requires TO_FILE() wrapper + options object
 --   Correct:  AI_PARSE_DOCUMENT(TO_FILE(@stage, path), {'mode': 'LAYOUT'})
---   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, path)  <- deprecated signature
+--   Wrong:    SNOWFLAKE.CORTEX.PARSE_DOCUMENT(@stage, path)
+--             <- deprecated signature
 --
 -- Bug fix C8-2: ORDER BY column_position -> ORDER BY ORDER_ID
 --   The column 'column_position' doesn't exist; use the actual column name.
@@ -35,8 +37,9 @@ LIMIT 100;
 SELECT
     notification_id,
     email_received_at,
-    -- response_format returns a schema-valid OBJECT. A "return only JSON" prompt
-    -- alone often comes back fenced in Markdown, which TRY_PARSE_JSON turns into NULL.
+    -- response_format returns a schema-valid OBJECT. A "return only
+    -- JSON" prompt alone often comes back fenced in Markdown, which
+    -- TRY_PARSE_JSON turns into NULL.
     AI_COMPLETE(
         model  => 'claude-haiku-4-5',
         prompt => CONCAT(
@@ -53,17 +56,21 @@ SELECT
                     'firmware_version':    {'type': 'string'},
                     'release_date':        {'type': 'string'},
                     'severity':            {'type': 'string',
-                                            'enum': ['critical', 'major', 'minor', 'informational']},
-                    'affected_device_ids': {'type': 'array', 'items': {'type': 'string'}}
+                                            'enum': ['critical', 'major',
+                                                     'minor', 'informational']},
+                    'affected_device_ids': {'type': 'array',
+                                            'items': {'type': 'string'}}
                 },
-                'required': ['device_model', 'firmware_version', 'release_date',
-                             'severity', 'affected_device_ids'],
+                'required': ['device_model', 'firmware_version',
+                             'release_date', 'severity',
+                             'affected_device_ids'],
                 'additionalProperties': false
             }
         }
     )                             AS parsed_firmware_update
 FROM raw.firmware_notifications
-WHERE email_body IS NOT NULL;    -- idempotency: only process rows with content
+WHERE email_body IS NOT NULL;    -- idempotency: only process rows
+                                 -- with content
 
 
 -- ============================================================
@@ -76,7 +83,8 @@ FROM TABLE(
         FILE_FORMAT => 'opspu_csv_format'
     )
 )
-ORDER BY ORDER_ID;               -- Bug fix C8-2: ORDER_ID is the correct column
+ORDER BY ORDER_ID;               -- Bug fix C8-2: ORDER_ID is the
+                                 -- correct column
 
 
 -- ============================================================

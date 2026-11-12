@@ -2,8 +2,9 @@
 # Section: 10.5 Deferrable approval gate (ApprovalSensor)
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Deferrable approval gate using Airflow's sensor + reschedule mode.
@@ -30,10 +31,11 @@ from typing import Optional
 # ApprovalSensor: poll an Airflow Variable for a decision
 # ============================================================
 
+
 @task.sensor(
-    poke_interval=60,      # poll every 60 seconds
-    timeout=86400,         # 24-hour timeout
-    mode="reschedule",     # release worker slot between polls
+    poke_interval=60,  # poll every 60 seconds
+    timeout=86400,  # 24-hour timeout
+    mode="reschedule",  # release worker slot between polls
 )
 def await_approval(
     approval_key: str,
@@ -72,6 +74,7 @@ def await_approval(
 # Example DAG using the approval gate
 # ============================================================
 
+
 @dag(
     dag_id="opspu_approval_gate_example",
     schedule=None,
@@ -90,7 +93,8 @@ def approval_gate_example_dag():
         approval_key = f"approval_{table_fqn.lower().replace('.', '_')}"
         message = (
             f"Pipeline action proposed for {table_fqn}. "
-            f"Set Airflow Variable '{approval_key}' to 'approved' or 'rejected'."
+            f"Set Airflow Variable '{approval_key}' to 'approved' or "
+            f"'rejected'."
         )
         print(f"[NOTIFY ENGINEER] {message}")
         # In production: send Slack message with approve/reject buttons
@@ -100,14 +104,17 @@ def approval_gate_example_dag():
     def execute_on_approval(proposal: dict, approval_result: dict) -> dict:
         """Execute the action only if approved."""
         decision = approval_result.get("decision", "rejected")
-        table    = proposal["table_fqn"]
+        table = proposal["table_fqn"]
 
         if decision == "approved":
             print(f"[EXECUTE] Running approved pipeline action for {table}")
             # In production: trigger the actual pipeline action
             return {"outcome": "executed", "table": table}
         else:
-            print(f"[REJECTED] Pipeline action for {table} was rejected by human reviewer")
+            print(
+                f"[REJECTED] Pipeline action for {table} was rejected by "
+                f"human reviewer"
+            )
             return {"outcome": "rejected", "table": table}
 
     # DAG wiring

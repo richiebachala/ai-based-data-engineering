@@ -2,7 +2,8 @@
 # Section: 5.2 Hybrid retrieval — BM25 + semantic + RRF
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -33,21 +34,24 @@ client = anthropic.Anthropic()
 
 @dataclass
 class RetrievedChunk:
-    source:      str
+    source: str
     source_type: str
-    content:     str
-    bm25_rank:   Optional[int]   = None
+    content: str
+    bm25_rank: Optional[int] = None
     semantic_rank: Optional[int] = None
-    rrf_score:   float           = 0.0
-    token_estimate: int          = 0
+    rrf_score: float = 0.0
+    token_estimate: int = 0
 
     def __post_init__(self):
-        self.token_estimate = max(1, len(self.content) // 3)  # ~3 chars/token (Claude 4.7+ tokenizer)
+        self.token_estimate = max(
+            1, len(self.content) // 3
+        )  # ~3 chars/token (Claude 4.7+ tokenizer)
 
 
 # ============================================================
 # Contextual Retrieval: enrich chunks before embedding
 # ============================================================
+
 
 def add_contextual_prefix(
     document_summary: str,
@@ -68,14 +72,23 @@ def add_contextual_prefix(
             {
                 "type": "text",
                 "text": document_summary,
-                "cache_control": {"type": "ephemeral"}  # cache the full document
+                "cache_control": {
+                    "type": "ephemeral"
+                },  # cache the full document
             }
         ],
-        messages=[{"role": "user", "content": (
-            f"Write 2-3 sentences explaining how this {chunk_type} chunk "
-            f"relates to the document above. Be specific and concise.\n\n"
-            f"Chunk:\n{chunk_content[:500]}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Write 2-3 sentences explaining how this {chunk_type} "
+                    f"chunk "
+                    f"relates to the document above. Be specific and "
+                    f"concise.\n\n"
+                    f"Chunk:\n{chunk_content[:500]}"
+                ),
+            }
+        ],
     )
     prefix = response.content[0].text.strip()
     return f"{prefix}\n\n{chunk_content}"
@@ -85,20 +98,22 @@ def add_contextual_prefix(
 # BM25 index
 # ============================================================
 
+
 class BM25Index:
     """Lightweight BM25 index over a corpus of ContextChunks."""
 
     def __init__(self, chunks: list):
-        self.chunks  = chunks
-        corpus       = [c.content.lower().split() for c in chunks]
-        self.index   = BM25Okapi(corpus)
+        self.chunks = chunks
+        corpus = [c.content.lower().split() for c in chunks]
+        self.index = BM25Okapi(corpus)
 
     def query(
         self,
         query: str,
         top_k: int = 20,
     ) -> list[tuple[int, float]]:
-        """Return [(chunk_index, bm25_score), ...] sorted by score descending."""
+        """Return [(chunk_index, bm25_score), ...] sorted by score
+        descending."""
         tokens = query.lower().split()
         scores = self.index.get_scores(tokens)
         ranked = sorted(enumerate(scores), key=lambda x: x[1], reverse=True)
@@ -108,6 +123,7 @@ class BM25Index:
 # ============================================================
 # Semantic search (stub — replace with real vector store)
 # ============================================================
+
 
 def semantic_search(
     query: str,
@@ -123,6 +139,7 @@ def semantic_search(
     # STUB: replace with real embedding + cosine similarity
     # For illustration: return random rankings for demonstration
     import random
+
     ranked = [(i, random.random()) for i in range(len(chunks))]
     return sorted(ranked, key=lambda x: x[1], reverse=True)[:top_k]
 
@@ -130,6 +147,7 @@ def semantic_search(
 # ============================================================
 # Reciprocal Rank Fusion (RRF)
 # ============================================================
+
 
 def reciprocal_rank_fusion(
     bm25_results: list[tuple[int, float]],
@@ -140,7 +158,8 @@ def reciprocal_rank_fusion(
     Combine BM25 and semantic rankings using RRF.
 
     RRF score = sum(1 / (k + rank_in_list)) for each list.
-    k=60 is the standard default from the original paper (Cormack et al., SIGIR 2009).
+    k=60 is the standard default from the original paper (Cormack et al.,
+    SIGIR 2009).
     """
     scores: dict[int, float] = {}
 
@@ -156,6 +175,7 @@ def reciprocal_rank_fusion(
 # ============================================================
 # Full hybrid retrieval pipeline
 # ============================================================
+
 
 def hybrid_retrieve(
     query: str,
@@ -173,27 +193,34 @@ def hybrid_retrieve(
     Returns:
         List of RetrievedChunk sorted by RRF score (best first)
     """
-    bm25_idx   = BM25Index(chunks)
-    bm25_res   = bm25_idx.query(query, top_k=20)
-    sem_res    = semantic_search(query, chunks, top_k=20)
+    bm25_idx = BM25Index(chunks)
+    bm25_res = bm25_idx.query(query, top_k=20)
+    sem_res = semantic_search(query, chunks, top_k=20)
 
-    fused      = reciprocal_rank_fusion(bm25_res, sem_res)
+    fused = reciprocal_rank_fusion(bm25_res, sem_res)
 
     results = []
     for chunk_idx, rrf_score in fused[:top_k]:
         c = chunks[chunk_idx]
         # Determine individual ranks for attribution
-        bm25_rank = next((r for r, (i, _) in enumerate(bm25_res, 1) if i == chunk_idx), None)
-        sem_rank  = next((r for r, (i, _) in enumerate(sem_res, 1)  if i == chunk_idx), None)
-        results.append(RetrievedChunk(
-            source=c.source,
-            source_type=c.source_type,
-            content=c.content,
-            bm25_rank=bm25_rank,
-            semantic_rank=sem_rank,
-            rrf_score=rrf_score,
-            token_estimate=c.token_estimate,
-        ))
+        bm25_rank = next(
+            (r for r, (i, _) in enumerate(bm25_res, 1) if i == chunk_idx),
+            None,
+        )
+        sem_rank = next(
+            (r for r, (i, _) in enumerate(sem_res, 1) if i == chunk_idx), None
+        )
+        results.append(
+            RetrievedChunk(
+                source=c.source,
+                source_type=c.source_type,
+                content=c.content,
+                bm25_rank=bm25_rank,
+                semantic_rank=sem_rank,
+                rrf_score=rrf_score,
+                token_estimate=c.token_estimate,
+            )
+        )
     return results
 
 
@@ -201,6 +228,7 @@ def hybrid_retrieve(
 # Snowflake Cortex Search integration
 # Bug fix C5-1: OBJECT_CONSTRUCT, not ARRAY_CONSTRUCT for filters
 # ============================================================
+
 
 def cortex_search(
     conn,
@@ -220,7 +248,8 @@ def cortex_search(
     with conn.cursor() as cur:
         if source_type_filter:
             # CORRECT: OBJECT_CONSTRUCT for Cortex Search filters
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT * FROM TABLE(
                     SNOWFLAKE.CORTEX.SEARCH(
                         'opspu_context_index',
@@ -229,12 +258,20 @@ def cortex_search(
                         %s
                     )
                 )
-            """, (query, source_type_filter, limit))
+            """,
+                (query, source_type_filter, limit),
+            )
         else:
-            cur.execute("""
+            cur.execute(
+                """
                 SELECT * FROM TABLE(
-                    SNOWFLAKE.CORTEX.SEARCH('opspu_context_index', %s, NULL, %s)
+                    SNOWFLAKE.CORTEX.SEARCH('opspu_context_index', %s, NULL, \
+%s)
                 )
-            """, (query, limit))
-        return [dict(zip([d[0] for d in cur.description], row))
-                for row in cur.fetchall()]
+            """,
+                (query, limit),
+            )
+        return [
+            dict(zip([d[0] for d in cur.description], row))
+            for row in cur.fetchall()
+        ]

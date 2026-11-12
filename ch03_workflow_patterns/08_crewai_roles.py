@@ -2,7 +2,8 @@
 # Section: 3.2 Agent frameworks — CrewAI
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -15,36 +16,57 @@ Use CrewAI when:
 
 This crew replicates the OpsPulse documentation workflow:
   1. Data Steward: classify columns for PII and sensitivity
-  2. Documentation Writer: write dbt-format descriptions using the classification
+  2. Documentation Writer: write dbt-format descriptions using
+     the classification
 """
 
 try:
     from crewai import Agent, Task, Crew, Process
     from crewai.tools import tool
 except ImportError:
-    raise ImportError("pip install -r requirements-crewai.txt  (separate venv; crewai pins mcp<2)")
+    raise ImportError(
+        "pip install -r requirements-crewai.txt  (separate venv; crewai pins "
+        "mcp<2)"
+    )
 
 # CrewAI 1.x takes a model string or crewai.LLM, not a LangChain chat model:
 # Agent(llm=ChatAnthropic(...)) fails validation before any call is made.
 from crewai import LLM
+
 sonnet = LLM(model="anthropic/claude-sonnet-5")
 
 import json
 
 
-# --- Tool stubs (replace with real Snowflake + catalog calls in production) ---
+# --- Tool stubs (replace with real Snowflake + catalog calls in production)
+# ---
+
 
 @tool("catalog_query_tool")
 def catalog_query_tool(table_name: str) -> str:
     """Query the data catalog for column metadata for a table."""
     # STUB: replace with real INFORMATION_SCHEMA query
-    return json.dumps([
-        {"column_name": "device_id",    "data_type": "VARCHAR",  "comment": ""},
-        {"column_name": "technician_id","data_type": "VARCHAR",  "comment": ""},
-        {"column_name": "calibration_date", "data_type": "DATE", "comment": ""},
-        {"column_name": "passed",        "data_type": "BOOLEAN", "comment": ""},
-        {"column_name": "notes",         "data_type": "VARCHAR", "comment": ""},
-    ])
+    return json.dumps(
+        [
+            {
+                "column_name": "device_id",
+                "data_type": "VARCHAR",
+                "comment": "",
+            },
+            {
+                "column_name": "technician_id",
+                "data_type": "VARCHAR",
+                "comment": "",
+            },
+            {
+                "column_name": "calibration_date",
+                "data_type": "DATE",
+                "comment": "",
+            },
+            {"column_name": "passed", "data_type": "BOOLEAN", "comment": ""},
+            {"column_name": "notes", "data_type": "VARCHAR", "comment": ""},
+        ]
+    )
 
 
 @tool("pii_pattern_tool")
@@ -63,12 +85,24 @@ def pii_pattern_tool(column_names: str) -> str:
 def sample_data_tool(table_name: str) -> str:
     """Retrieve 3 sample rows from a table for documentation context."""
     # STUB: replace with real SELECT TOP 3 query
-    return json.dumps([
-        {"device_id": "D001", "technician_id": "T42", "calibration_date": "2025-03-01",
-         "passed": True,  "notes": "Routine calibration"},
-        {"device_id": "D002", "technician_id": "T15", "calibration_date": "2025-03-02",
-         "passed": False, "notes": "Offset exceeded tolerance; recalibrated"},
-    ])
+    return json.dumps(
+        [
+            {
+                "device_id": "D001",
+                "technician_id": "T42",
+                "calibration_date": "2025-03-01",
+                "passed": True,
+                "notes": "Routine calibration",
+            },
+            {
+                "device_id": "D002",
+                "technician_id": "T15",
+                "calibration_date": "2025-03-02",
+                "passed": False,
+                "notes": "Offset exceeded tolerance; recalibrated",
+            },
+        ]
+    )
 
 
 # --- Agent definitions ---
@@ -77,7 +111,8 @@ data_steward = Agent(
     role="Data Steward",
     goal="Classify columns for PII, sensitivity, and business domain",
     backstory=(
-        "You are the data governance lead for OpsPulse. You have deep knowledge "
+        "You are the data governance lead for OpsPulse. You have deep "
+        "knowledge "
         "of what constitutes PII under GDPR and CCPA, and how to classify "
         "data by sensitivity (public, internal, confidential, restricted)."
     ),
@@ -88,10 +123,14 @@ data_steward = Agent(
 
 documentation_writer = Agent(
     role="Documentation Writer",
-    goal="Write accurate, business-readable column descriptions for data products",
+    goal=(
+        "Write accurate, business-readable column descriptions for data "
+        "products"
+    ),
     backstory=(
         "You are a technical writer with 5 years of experience documenting "
-        "data products for business and technical audiences. You make complex "
+        "data products for business and technical audiences. You make "
+        "complex "
         "data definitions understandable without sacrificing precision."
     ),
     tools=[catalog_query_tool, sample_data_tool],
@@ -119,7 +158,7 @@ document_task = Task(
         "Include PII warnings where the steward flagged PII=true."
     ),
     agent=documentation_writer,
-    context=[classify_task],      # receives classify_task's output as context
+    context=[classify_task],  # receives classify_task's output as context
     expected_output="dbt YAML column descriptions block",
 )
 
@@ -129,7 +168,7 @@ document_task = Task(
 documentation_crew = Crew(
     agents=[data_steward, documentation_writer],
     tasks=[classify_task, document_task],
-    process=Process.sequential,   # strict ordering: classify before document
+    process=Process.sequential,  # strict ordering: classify before document
 )
 
 

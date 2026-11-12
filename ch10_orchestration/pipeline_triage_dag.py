@@ -2,15 +2,17 @@
 # Section: 10.1-10.3 Pipeline triage, idempotency, approval gate
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Airflow DAG for intelligent pipeline triage and repair.
 
-Bug fix C10-1: ti.set_state(TaskInstanceState.UP_FOR_RETRY) in failure callback
-has no effect in Airflow 2.x+. The correct pattern is to raise an exception
-(which Airflow handles as a retry) or use on_failure_callback with alerting only.
+Bug fix C10-1: ti.set_state(TaskInstanceState.UP_FOR_RETRY) in failure
+callback has no effect in Airflow 2.x+. The correct pattern is to raise an
+exception (which Airflow handles as a retry) or use on_failure_callback with
+alerting only.
 
 Bug fix C10-2: All 7 helper functions are defined (not just referenced).
 """
@@ -35,25 +37,27 @@ client = anthropic.Anthropic()
 # Triage data models
 # ============================================================
 
+
 class TriageAction(str, Enum):
-    RETRY_IMMEDIATELY  = "retry_immediately"    # transient; safe to retry now
-    RETRY_WITH_BACKOFF = "retry_with_backoff"   # transient; wait before retry
-    PAUSE_FOR_REVIEW   = "pause_for_review"     # ambiguous quality failure
-    ESCALATE_CRITICAL  = "escalate_critical"    # SLA breach; page on-call
-    DEFER_TO_BACKGROUND = "defer_to_background" # low priority; run off-peak
+    RETRY_IMMEDIATELY = "retry_immediately"  # transient; safe to retry now
+    RETRY_WITH_BACKOFF = "retry_with_backoff"  # transient; wait before retry
+    PAUSE_FOR_REVIEW = "pause_for_review"  # ambiguous quality failure
+    ESCALATE_CRITICAL = "escalate_critical"  # SLA breach; page on-call
+    DEFER_TO_BACKGROUND = "defer_to_background"  # low priority; run off-peak
 
 
 class TriageResult(BaseModel):
-    action:          TriageAction
-    confidence:      float = Field(ge=0.0, le=1.0)
-    root_cause:      str
-    runbook:         str
+    action: TriageAction
+    confidence: float = Field(ge=0.0, le=1.0)
+    root_cause: str
+    runbook: str
     affected_consumers: list[str] = Field(default_factory=list)
 
 
 # ============================================================
 # Routing logic (deterministic, no LLM needed)
 # ============================================================
+
 
 def route_failure(
     error_type: str,
@@ -66,8 +70,10 @@ def route_failure(
     Returns None for ambiguous cases that require LLM triage.
     """
     # Connection / transient network errors → retry immediately
-    if any(term in error_type.lower() for term in
-           ["connection", "timeout", "network", "ssl", "temporary"]):
+    if any(
+        term in error_type.lower()
+        for term in ["connection", "timeout", "network", "ssl", "temporary"]
+    ):
         if retry_count < 3:
             return TriageAction.RETRY_IMMEDIATELY
 
@@ -87,6 +93,7 @@ def route_failure(
 # LLM triage for ambiguous failures
 # ============================================================
 
+
 def llm_triage_failure(
     table_fqn: str,
     error_message: str,
@@ -102,24 +109,34 @@ def llm_triage_failure(
         model="claude-sonnet-5",
         max_tokens=800,
         system=(
-            "You are a data reliability engineer triaging Airflow pipeline failures. "
-            "Classify the failure and produce a specific, actionable runbook. "
-            "The runbook must include specific Snowflake queries to diagnose the issue, "
+            "You are a data reliability engineer triaging Airflow pipeline "
+            "failures. "
+            "Classify the failure and produce a specific, actionable "
+            "runbook. "
+            "The runbook must include specific Snowflake queries to "
+            "diagnose the issue, "
             "not generic advice."
         ),
-        tools=[{
-            "name": "triage",
-            "description": "Return a structured triage result.",
-            "input_schema": TriageResult.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "triage",
+                "description": "Return a structured triage result.",
+                "input_schema": TriageResult.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "triage"},
-        messages=[{"role": "user", "content": (
-            f"Table: {table_fqn}\n"
-            f"Error: {error_message[:500]}\n"
-            f"Null rate: {null_rate}\n"
-            f"Affected consumers: {affected_consumers}\n"
-            f"Schema context: {schema_context[:200]}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Table: {table_fqn}\n"
+                    f"Error: {error_message[:500]}\n"
+                    f"Null rate: {null_rate}\n"
+                    f"Affected consumers: {affected_consumers}\n"
+                    f"Schema context: {schema_context[:200]}"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     return TriageResult(**tool_call.input)
@@ -129,9 +146,10 @@ def llm_triage_failure(
 # Airflow DAG
 # ============================================================
 
+
 @dag(
     dag_id="opspu_pipeline_triage",
-    schedule=None,   # triggered by failure callbacks
+    schedule=None,  # triggered by failure callbacks
     start_date=datetime(2025, 1, 1, tzinfo=timezone.utc),
     catchup=False,
     tags=["orchestration", "triage"],
@@ -144,11 +162,11 @@ def opspu_pipeline_triage_dag():
         Step 1: Route the failure deterministically.
         Falls through to LLM triage for ambiguous cases.
         """
-        error_type  = failure_context.get("error_type", "")
-        null_rate   = failure_context.get("null_rate")
+        error_type = failure_context.get("error_type", "")
+        null_rate = failure_context.get("null_rate")
         minutes_late = failure_context.get("minutes_late")
-        retry_count  = failure_context.get("retry_count", 0)
-        table_fqn    = failure_context.get("table_fqn", "")
+        retry_count = failure_context.get("retry_count", 0)
+        table_fqn = failure_context.get("table_fqn", "")
 
         # Deterministic routing
         deterministic_action = route_failure(
@@ -157,11 +175,11 @@ def opspu_pipeline_triage_dag():
 
         if deterministic_action:
             return {
-                "action":      deterministic_action.value,
-                "confidence":  1.0,
-                "root_cause":  f"Deterministic routing: {error_type}",
-                "runbook":     _get_standard_runbook(deterministic_action),
-                "source":      "deterministic",
+                "action": deterministic_action.value,
+                "confidence": 1.0,
+                "root_cause": f"Deterministic routing: {error_type}",
+                "runbook": _get_standard_runbook(deterministic_action),
+                "source": "deterministic",
             }
 
         # LLM triage for ambiguous cases
@@ -177,7 +195,9 @@ def opspu_pipeline_triage_dag():
             triage = TriageResult(
                 action=TriageAction.PAUSE_FOR_REVIEW,
                 confidence=triage.confidence,
-                root_cause="Low-confidence triage — escalated for human review",
+                root_cause=(
+                    "Low-confidence triage — escalated for human review"
+                ),
                 runbook=triage.runbook,
                 affected_consumers=triage.affected_consumers,
             )
@@ -185,17 +205,23 @@ def opspu_pipeline_triage_dag():
         return {**triage.model_dump(), "source": "llm"}
 
     @task
-    def execute_triage_action(triage_result: dict, failure_context: dict) -> dict:
+    def execute_triage_action(
+        triage_result: dict, failure_context: dict
+    ) -> dict:
         """
         Step 2: Execute the recommended action.
-        Bug fix C10-1: do NOT use ti.set_state(TaskInstanceState.UP_FOR_RETRY).
-        Retries are triggered by raising an exception in the task.
+        Bug fix C10-1: do NOT use
+        ti.set_state(TaskInstanceState.UP_FOR_RETRY). Retries are
+        triggered by raising an exception in the task.
         """
         action = TriageAction(triage_result["action"])
 
         if action == TriageAction.RETRY_IMMEDIATELY:
-            # Log and return; Airflow retries when the original task raises again
-            _log_triage_event(triage_result, failure_context, "retry_scheduled")
+            # Log and return; Airflow retries when
+            # the original task raises again
+            _log_triage_event(
+                triage_result, failure_context, "retry_scheduled"
+            )
             return {"outcome": "retry_logged", "action": action.value}
 
         elif action == TriageAction.ESCALATE_CRITICAL:
@@ -232,14 +258,25 @@ opspu_pipeline_triage_dag()
 # Helper functions (Bug fix C10-2: all defined, not just referenced)
 # ============================================================
 
+
 def _get_standard_runbook(action: TriageAction) -> str:
     """Return the standard runbook text for deterministic actions."""
     runbooks = {
-        TriageAction.RETRY_IMMEDIATELY:   "Transient error detected. Airflow will retry automatically.",
-        TriageAction.ESCALATE_CRITICAL:   "SLA breach detected. Page on-call immediately.",
-        TriageAction.PAUSE_FOR_REVIEW:    "Retry limit reached. Create ticket for investigation.",
-        TriageAction.DEFER_TO_BACKGROUND: "Low priority. Schedule retry during off-peak window.",
-        TriageAction.RETRY_WITH_BACKOFF:  "Transient error. Retry with exponential backoff.",
+        TriageAction.RETRY_IMMEDIATELY: (
+            "Transient error detected. Airflow will retry automatically."
+        ),
+        TriageAction.ESCALATE_CRITICAL: (
+            "SLA breach detected. Page on-call immediately."
+        ),
+        TriageAction.PAUSE_FOR_REVIEW: (
+            "Retry limit reached. Create ticket for investigation."
+        ),
+        TriageAction.DEFER_TO_BACKGROUND: (
+            "Low priority. Schedule retry during off-peak window."
+        ),
+        TriageAction.RETRY_WITH_BACKOFF: (
+            "Transient error. Retry with exponential backoff."
+        ),
     }
     return runbooks.get(action, "No standard runbook available.")
 
@@ -247,12 +284,13 @@ def _get_standard_runbook(action: TriageAction) -> str:
 def _log_triage_event(triage: dict, context: dict, outcome: str) -> None:
     """Log the triage event to the audit trail."""
     import json, uuid
+
     event = {
-        "event_id":   str(uuid.uuid4()),
-        "timestamp":  datetime.now(timezone.utc).isoformat(),
-        "outcome":    outcome,
-        "triage":     triage,
-        "context":    {k: v for k, v in context.items() if k != "error_message"},
+        "event_id": str(uuid.uuid4()),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "outcome": outcome,
+        "triage": triage,
+        "context": {k: v for k, v in context.items() if k != "error_message"},
     }
     with open("triage_audit.jsonl", "a") as f:
         f.write(json.dumps(event) + "\n")
@@ -273,14 +311,20 @@ def _create_review_ticket(table: str, triage: dict) -> str:
     """Create a Jira ticket for human review. Returns the ticket ID."""
     # STUB: replace with real Jira API call using JIRA_* env vars
     ticket_id = f"OPS-{hash(table) % 10000:04d}"
-    print(f"[TICKET CREATED] {ticket_id} for {table}: {triage.get('root_cause', '')}")
+    print(
+        f"[TICKET CREATED] {ticket_id} for {table}: "
+        f"{triage.get('root_cause', '')}"
+    )
     return ticket_id
 
 
 def _schedule_background_retry(context: dict) -> None:
     """Schedule a low-priority retry during the next off-peak window."""
     # STUB: trigger the DAG with a 4-hour delay
-    print(f"[DEFER] Scheduling background retry for {context.get('table_fqn', 'unknown')}")
+    print(
+        f"[DEFER] Scheduling background retry for "
+        f"{context.get('table_fqn', 'unknown')}"
+    )
 
 
 def _get_snowflake_conn():

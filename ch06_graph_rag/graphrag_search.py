@@ -2,7 +2,8 @@
 # Section: 6.3 GraphRAG local and global search
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -16,10 +17,11 @@ Microsoft GraphRAG (open-source, July 2024):
 Entity types for data engineering:
   table, column, metric, team, process, policy, failure_mode
 
-Version note: targets graphrag 3.x. Search goes through the public graphrag.api
-(local_search / global_search); models, retrieval tuning, and the vector store are
-configured in settings.yaml, and the index is written as flat output/*.parquet files.
-Models are called through LiteLLM, so model_provider: anthropic works without a proxy.
+Version note: targets graphrag 3.x. Search goes through the public
+graphrag.api (local_search / global_search); models, retrieval tuning, and
+the vector store are configured in settings.yaml, and the index is written
+as flat output/*.parquet files. Models are called through LiteLLM, so
+model_provider: anthropic works without a proxy.
 """
 
 import os
@@ -38,16 +40,20 @@ client = anthropic.Anthropic()
 
 GRAPHRAG_CONFIG = """
 # GraphRAG 3.x: values to change in the settings.yaml written by
-#   graphrag init --root opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small
-# Keep the generated keys (auth_method, retry, storage). Unknown keys are ignored
-# silently, so check spelling: load_config(...) and print the section you edited.
+#   graphrag init --root opspu_graphrag --model gpt-6.1-terra --embedding \
+text-embedding-3-small
+# Keep the generated keys (auth_method, retry, storage). Unknown keys are \
+ignored
+# silently, so check spelling: load_config(...) and print the section you \
+edited.
 
 chunking:
   size: 300
   overlap: 50
 
 extract_graph:
-  entity_types: [table, column, metric, data_product, team, process, policy, failure_mode]
+  entity_types: [table, column, metric, data_product, team, process, policy, \
+failure_mode]
   max_gleanings: 1
 
 local_search:
@@ -63,20 +69,34 @@ local_search:
 # GraphRAG query wrappers (graphrag 3.x public API)
 # ============================================================
 
-INDEX_TABLES = ["entities", "relationships", "communities", "community_reports", "text_units"]
+INDEX_TABLES = [
+    "entities",
+    "relationships",
+    "communities",
+    "community_reports",
+    "text_units",
+]
 COMMUNITY_LEVEL = 2
 
 
 def load_graphrag_index(graphrag_root: str) -> dict:
-    """Load the flat parquet tables written by `graphrag index` (output/*.parquet)."""
+    """Load the flat parquet tables written by `graphrag index`
+    (output/*.parquet)."""
     out_dir = Path(graphrag_root) / "output"
-    missing = [t for t in INDEX_TABLES if not (out_dir / f"{t}.parquet").exists()]
+    missing = [
+        t for t in INDEX_TABLES if not (out_dir / f"{t}.parquet").exists()
+    ]
     if missing:
         raise FileNotFoundError(
-            f"Missing {missing} under {out_dir}. Run 'graphrag index --root {graphrag_root}' first."
+            f"Missing {missing} under {out_dir}. Run 'graphrag index --root "
+            f"{graphrag_root}' first."
         )
-    tables = {t: pd.read_parquet(out_dir / f"{t}.parquet") for t in INDEX_TABLES}
-    cov = out_dir / "covariates.parquet"   # present only when extract_claims is enabled
+    tables = {
+        t: pd.read_parquet(out_dir / f"{t}.parquet") for t in INDEX_TABLES
+    }
+    cov = (
+        out_dir / "covariates.parquet"
+    )  # present only when extract_claims is enabled
     tables["covariates"] = pd.read_parquet(cov) if cov.exists() else None
     return tables
 
@@ -140,9 +160,10 @@ async def run_graphrag_global_search(
 # Hybrid retrieval: graph traversal + vector fill-in
 # ============================================================
 
+
 def hybrid_graph_vector_retrieve(
     query: str,
-    G,             # networkx DiGraph from knowledge_graph_networkx.py
+    G,  # networkx DiGraph from knowledge_graph_networkx.py
     vector_chunks: list,
     entity_name: str,
     max_hops: int = 2,
@@ -169,10 +190,12 @@ def hybrid_graph_vector_retrieve(
             neighbors = nx.ego_graph(G, entity_node, radius=max_hops)
             graph_context["neighborhood"] = [
                 {
-                    "id":        n,
-                    "name":      G.nodes[n].get("name", n),
-                    "type":      G.nodes[n].get("node_type", "unknown"),
-                    "hops":      nx.shortest_path_length(G, entity_node, n) if n != entity_node else 0,
+                    "id": n,
+                    "name": G.nodes[n].get("name", n),
+                    "type": G.nodes[n].get("node_type", "unknown"),
+                    "hops": nx.shortest_path_length(G, entity_node, n)
+                    if n != entity_node
+                    else 0,
                 }
                 for n in neighbors.nodes
             ]
@@ -181,23 +204,29 @@ def hybrid_graph_vector_retrieve(
 
     # Stage 2: vector retrieval anchored to the neighborhood
     # STUB: in production, filter vector chunks by entity neighborhood
-    neighborhood_names = {n["name"].lower() for n in graph_context["neighborhood"]}
+    neighborhood_names = {
+        n["name"].lower() for n in graph_context["neighborhood"]
+    }
     relevant_chunks = [
-        c for c in vector_chunks
+        c
+        for c in vector_chunks
         if any(name in c.content.lower() for name in neighborhood_names)
     ][:top_k_vector]
 
     return {
         "graph_neighborhood": graph_context,
-        "vector_chunks":      [{"source": c.source, "content": c.content[:500]}
-                               for c in relevant_chunks],
-        "query":              query,
+        "vector_chunks": [
+            {"source": c.source, "content": c.content[:500]}
+            for c in relevant_chunks
+        ],
+        "query": query,
     }
 
 
 # ============================================================
 # Grounding eval for GraphRAG answers
 # ============================================================
+
 
 def evaluate_graph_answer_grounding(
     query: str,
@@ -212,23 +241,34 @@ def evaluate_graph_answer_grounding(
         model="claude-sonnet-5",
         max_tokens=512,
         system=(
-            "You are a factual grounding evaluator for data engineering AI systems. "
-            "Check whether an answer is fully grounded in the provided context. "
-            "Be strict: flag any claim not explicitly supported by the context, "
+            "You are a factual grounding evaluator for data engineering AI "
+            "systems. "
+            "Check whether an answer is fully grounded in the provided "
+            "context. "
+            "Be strict: flag any claim not explicitly supported by the "
+            "context, "
             "even if it sounds plausible. Data engineering systems change; "
             "only claims supported by the retrieved context are safe."
         ),
-        messages=[{"role": "user", "content": (
-            f"Query: {query}\n\n"
-            f"Retrieved context:\n{retrieved_context}\n\n"
-            f"Answer to evaluate:\n{answer}\n\n"
-            "For each factual claim:\n"
-            "1. Quote the claim\n"
-            "2. Find supporting evidence in the context (exact quote)\n"
-            "3. Mark as GROUNDED, UNVERIFIED (not in context), or CONTRADICTED\n\n"
-            "Return JSON: {grounded: [...], unverified: [...], contradicted: [...], "
-            "overall_grounding_score: float 0.0-1.0}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Query: {query}\n\n"
+                    f"Retrieved context:\n{retrieved_context}\n\n"
+                    f"Answer to evaluate:\n{answer}\n\n"
+                    "For each factual claim:\n"
+                    "1. Quote the claim\n"
+                    "2. Find supporting evidence in the context (exact "
+                    "quote)\n"
+                    "3. Mark as GROUNDED, UNVERIFIED (not in context), or "
+                    "CONTRADICTED\n\n"
+                    "Return JSON: {grounded: [...], unverified: [...], "
+                    "contradicted: [...], "
+                    "overall_grounding_score: float 0.0-1.0}"
+                ),
+            }
+        ],
     )
     try:
         return json.loads(response.content[0].text)
@@ -239,10 +279,19 @@ def evaluate_graph_answer_grounding(
 if __name__ == "__main__":
     print("GraphRAG 3.x setup:")
     print("1. Install: pip install 'graphrag>=3.2,<4'   (Python 3.11-3.13)")
-    print("2. Init:    graphrag init --root opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small")
-    print("3. Edit settings.yaml (template below), add docs to opspu_graphrag/input/")
+    print(
+        "2. Init:    graphrag init --root opspu_graphrag --model "
+        "gpt-6.1-terra --embedding text-embedding-3-small"
+    )
+    print(
+        "3. Edit settings.yaml (template below), add docs to "
+        "opspu_graphrag/input/"
+    )
     print("4. Index:   graphrag index --root opspu_graphrag")
-    print("5. Query:   asyncio.run(run_graphrag_local_search('What tables feed fct_device_anomalies?'))")
+    print(
+        "5. Query:   asyncio.run(run_graphrag_local_search('What tables feed "
+        "fct_device_anomalies?'))"
+    )
     print()
     print("settings.yaml values to change:")
     print(GRAPHRAG_CONFIG)

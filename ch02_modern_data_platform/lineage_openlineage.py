@@ -2,7 +2,8 @@
 # Section: 2.3 Catalogs and lineage as context infrastructure
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -52,20 +53,27 @@ def emit_ingestion_lineage(
     """
     client = OpenLineageClient.from_environment()
 
-    client.emit(RunEvent(
-        eventType=RunState.COMPLETE,
-        eventTime=_utc_now_iso(),
-        run=Run(runId=run_id),
-        job=Job(namespace=namespace, name=f"ingest.{target_table}"),
-        inputs=[Dataset(
-            namespace=f"file://{source_path.split('/')[2]}",   # bucket name as namespace
-            name=source_path.rsplit("/", 1)[-1],
-        )],
-        outputs=[Dataset(
-            namespace=f"snowflake://opspu/marts",
-            name=target_table,
-        )],
-    ))
+    client.emit(
+        RunEvent(
+            eventType=RunState.COMPLETE,
+            eventTime=_utc_now_iso(),
+            run=Run(runId=run_id),
+            job=Job(namespace=namespace, name=f"ingest.{target_table}"),
+            inputs=[
+                Dataset(
+                    # bucket name as namespace
+                    namespace=f"file://{source_path.split('/')[2]}",
+                    name=source_path.rsplit("/", 1)[-1],
+                )
+            ],
+            outputs=[
+                Dataset(
+                    namespace=f"snowflake://opspu/marts",
+                    name=target_table,
+                )
+            ],
+        )
+    )
 
 
 def emit_transformation_lineage(
@@ -87,19 +95,23 @@ def emit_transformation_lineage(
     """
     client = OpenLineageClient.from_environment()
 
-    client.emit(RunEvent(
-        eventType=RunState.COMPLETE,
-        eventTime=_utc_now_iso(),
-        run=Run(runId=run_id),
-        job=Job(namespace=namespace, name=job_name),
-        inputs=[
-            Dataset(namespace=f"snowflake://opspu/raw", name=t)
-            for t in input_tables
-        ],
-        outputs=[
-            Dataset(namespace=f"snowflake://opspu/marts", name=output_table)
-        ],
-    ))
+    client.emit(
+        RunEvent(
+            eventType=RunState.COMPLETE,
+            eventTime=_utc_now_iso(),
+            run=Run(runId=run_id),
+            job=Job(namespace=namespace, name=job_name),
+            inputs=[
+                Dataset(namespace=f"snowflake://opspu/raw", name=t)
+                for t in input_tables
+            ],
+            outputs=[
+                Dataset(
+                    namespace=f"snowflake://opspu/marts", name=output_table
+                )
+            ],
+        )
+    )
 
 
 def emit_failure(
@@ -111,18 +123,23 @@ def emit_failure(
     """Emit an OpenLineage FAIL event with error metadata."""
     client = OpenLineageClient.from_environment()
 
-    client.emit(RunEvent(
-        eventType=RunState.FAIL,
-        eventTime=_utc_now_iso(),
-        run=Run(runId=run_id),
-        job=Job(namespace=namespace, name=job_name),
-        inputs=[],
-        outputs=[],
-    ))
+    client.emit(
+        RunEvent(
+            eventType=RunState.FAIL,
+            eventTime=_utc_now_iso(),
+            run=Run(runId=run_id),
+            job=Job(namespace=namespace, name=job_name),
+            inputs=[],
+            outputs=[],
+        )
+    )
 
 
 if __name__ == "__main__":
     run_id = str(uuid.uuid4())
     print(f"Emitting test lineage event (run_id={run_id})")
-    print("Set OPENLINEAGE_URL in .env to send to a real Marquez / Atlas instance.")
+    print(
+        "Set OPENLINEAGE_URL in .env to send to a real Marquez / Atlas "
+        "instance."
+    )
     print(f"OPENLINEAGE_URL={os.getenv('OPENLINEAGE_URL', 'not set')}")

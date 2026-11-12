@@ -2,7 +2,8 @@
 # Section: 2.4 The control plane: evals, observability, governance
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -25,7 +26,8 @@ mcp = MCPServer(
     name="opspu-catalog",
     instructions=(
         "You are connected to the OpsPulse data catalog. "
-        "Use get_table_schema before generating any SQL or proposing any schema change. "
+        "Use get_table_schema before generating any SQL or proposing any "
+        "schema change. "
         "The catalog is the authoritative source of column definitions — "
         "do not infer column names or types from memory."
     ),
@@ -61,7 +63,8 @@ def get_table_schema(table_fqn: str) -> str:
     db, schema, table = table_fqn.upper().split(".")
     conn = _get_connection()
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT
                 column_name,
                 data_type,
@@ -71,11 +74,16 @@ def get_table_schema(table_fqn: str) -> str:
             WHERE table_schema = %s
               AND table_name   = %s
             ORDER BY ordinal_position
-        """, (schema, table))
+        """,
+            (schema, table),
+        )
         rows = cur.fetchall()
 
     if not rows:
-        return f"No columns found for {table_fqn}. Check the table name and your role."
+        return (
+            f"No columns found for {table_fqn}. Check the table name and "
+            f"your role."
+        )
 
     lines = [f"Schema for {table_fqn}:", ""]
     for col_name, data_type, nullable, description in rows:
@@ -103,7 +111,8 @@ def get_column_lineage(
     """
     conn = _get_connection()
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT DISTINCT
                 q.query_text,
                 q.query_start_time,
@@ -118,7 +127,9 @@ def get_column_lineage(
             AND q.query_start_time > DATEADD('day', -30, CURRENT_TIMESTAMP())
             ORDER BY q.query_start_time DESC
             LIMIT 20
-        """, (table_fqn, column_name.upper()))
+        """,
+            (table_fqn, column_name.upper()),
+        )
         rows = cur.fetchall()
 
     return {
@@ -147,10 +158,14 @@ def get_capability_index() -> str:
     you do not have to infer table purpose from column names alone.
     """
     import pathlib
+
     index_path = pathlib.Path(__file__).parent / "capability_index.md"
     if index_path.exists():
         return index_path.read_text()
-    return "Capability index not found. Check capability_index.md in the ch02 folder."
+    return (
+        "Capability index not found. Check capability_index.md in the ch02 "
+        "folder."
+    )
 
 
 @mcp.tool()
@@ -161,16 +176,19 @@ def run_read_query(sql: str) -> dict:
     Only SELECT statements are accepted. DML (INSERT/UPDATE/DELETE) and
     DDL (CREATE/ALTER/DROP) are rejected. Returns up to 1,000 rows.
 
-    Chapter 7 builds the production version of this tool (run_snowflake_select)
-    with full audit logging, circuit-breaker support, and structured error handling.
+    Chapter 7 builds the production version of this tool
+    (run_snowflake_select)
+    with full audit logging, circuit-breaker support, and structured error
+    handling.
 
     Args:
         sql: A complete SQL SELECT statement. Must not contain DML or DDL.
     """
     import re
+
     forbidden = re.compile(
-        r'\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL)\b',
-        re.IGNORECASE
+        r"\b(INSERT|UPDATE|DELETE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL)\b",
+        re.IGNORECASE,
     )
     if forbidden.search(sql):
         return {"error": "Only SELECT statements are permitted."}

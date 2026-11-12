@@ -2,7 +2,8 @@
 # Section: 3.1 Five composable workflow patterns — Parallelization
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -32,13 +33,15 @@ client = anthropic.Anthropic()
 # Variant A: Parallel sections (document all columns at once)
 # ============================================================
 
+
 async def _describe_column(
     table_name: str,
     column_name: str,
     data_type: str,
     sample_values: list | None = None,
 ) -> dict:
-    """Async: generate one column description (no thread pool; runs in executor)."""
+    """Async: generate one column description (no thread pool; runs in
+    executor)."""
     loop = asyncio.get_running_loop()
 
     def _call():
@@ -52,10 +55,16 @@ async def _describe_column(
                 "Write one-sentence column descriptions for a dbt catalog. "
                 "Audience: business analysts. Under 150 chars."
             ),
-            messages=[{"role": "user", "content": (
-                f"Table: {table_name}  Column: {column_name} ({data_type})"
-                f"{sample_str}\n\nWrite a one-sentence description."
-            )}]
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Table: {table_name}  Column: {column_name} "
+                        f"({data_type})"
+                        f"{sample_str}\n\nWrite a one-sentence description."
+                    ),
+                }
+            ],
         )
         return response.content[0].text.strip()
 
@@ -87,11 +96,12 @@ async def document_table_parallel(
 # Variant B: Voting (run same task N times, pick consensus)
 # ============================================================
 
+
 class ImpactAssessment(BaseModel):
-    table:             str
-    is_breaking:       bool
+    table: str
+    is_breaking: bool
     affected_consumers: list[str]
-    confidence:        float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(ge=0.0, le=1.0)
 
 
 async def _single_impact_vote(
@@ -106,18 +116,29 @@ async def _single_impact_vote(
         response = client.messages.create(
             model="claude-sonnet-5",
             max_tokens=400,
-            system="You are a data impact analyst. Assess whether a schema change breaks downstream consumers.",
-            tools=[{
-                "name": "assess",
-                "description": "Return an impact assessment.",
-                "input_schema": ImpactAssessment.model_json_schema(),
-            }],
+            system=(
+                "You are a data impact analyst. Assess whether a schema "
+                "change breaks downstream consumers."
+            ),
+            tools=[
+                {
+                    "name": "assess",
+                    "description": "Return an impact assessment.",
+                    "input_schema": ImpactAssessment.model_json_schema(),
+                }
+            ],
             tool_choice={"type": "tool", "name": "assess"},
-            messages=[{"role": "user", "content": (
-                f"Table: {table_fqn}\n"
-                f"Proposed change: {proposed_change}\n"
-                f"Downstream consumers: {json.dumps(downstream_consumers)}"
-            )}]
+            messages=[
+                {
+                    "role": "user",
+                    "content": (
+                        f"Table: {table_fqn}\n"
+                        f"Proposed change: {proposed_change}\n"
+                        f"Downstream consumers: "
+                        f"{json.dumps(downstream_consumers)}"
+                    ),
+                }
+            ],
         )
         tool_call = next(b for b in response.content if b.type == "tool_use")
         return ImpactAssessment(**tool_call.input)
@@ -154,26 +175,28 @@ async def impact_assessment_with_voting(
         all_affected.update(v.affected_consumers)
 
     return {
-        "table_fqn":           table_fqn,
-        "proposed_change":     proposed_change,
-        "is_breaking":         is_breaking,
-        "affected_consumers":  list(all_affected),
-        "consensus_pct":       consensus_pct,
-        "votes":               [v.model_dump() for v in votes],
-        "escalate":            consensus_pct < 0.67,  # < 2/3 agreement → escalate
+        "table_fqn": table_fqn,
+        "proposed_change": proposed_change,
+        "is_breaking": is_breaking,
+        "affected_consumers": list(all_affected),
+        "consensus_pct": consensus_pct,
+        "votes": [v.model_dump() for v in votes],
+        "escalate": consensus_pct < 0.67,  # < 2/3 agreement → escalate
     }
 
 
 if __name__ == "__main__":
     # Demo: document FCT_INVENTORY_EXPOSURE columns in parallel
     columns = [
-        {"column_name": "product_id",       "data_type": "VARCHAR"},
-        {"column_name": "region_code",       "data_type": "VARCHAR"},
-        {"column_name": "exposure_amount",   "data_type": "NUMBER"},
-        {"column_name": "snapshot_date",     "data_type": "DATE"},
-        {"column_name": "threshold_pct",     "data_type": "FLOAT"},
+        {"column_name": "product_id", "data_type": "VARCHAR"},
+        {"column_name": "region_code", "data_type": "VARCHAR"},
+        {"column_name": "exposure_amount", "data_type": "NUMBER"},
+        {"column_name": "snapshot_date", "data_type": "DATE"},
+        {"column_name": "threshold_pct", "data_type": "FLOAT"},
     ]
-    results = asyncio.run(document_table_parallel("fct_inventory_exposure", columns))
+    results = asyncio.run(
+        document_table_parallel("fct_inventory_exposure", columns)
+    )
     print("Parallel column documentation:")
     for r in results:
         print(f"  {r['column_name']}: {r['description']}")

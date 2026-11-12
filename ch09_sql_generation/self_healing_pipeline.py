@@ -1,9 +1,11 @@
 # Chapter 9: Generate and Verify Transformations (SQL/dbt)
-# Section: 9.1-9.3 SQL complexity assessment, guardrails, self-healing pipeline
+# Section: 9.1-9.3 SQL complexity assessment, guardrails, self-healing
+# pipeline
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Self-healing SQL generation pipeline.
@@ -11,7 +13,8 @@ Self-healing SQL generation pipeline.
 Three-layer pipeline:
   1. Complexity assessment — haiku classifies SQL tier to pick the right model
   2. Generation — tier-appropriate model generates SQL
-  3. Validation stack — structural guardrails + anti-pattern checks + plausibility eval
+  3. Validation stack — structural guardrails + anti-pattern checks
+     + plausibility eval
   4. Repair loop — failed validation → feedback → regenerate
 
 The evaluator-optimizer from Chapter 3 now applied at the SQL layer.
@@ -32,15 +35,17 @@ client = anthropic.Anthropic()
 # Complexity tiers
 # ============================================================
 
+
 class SQLComplexityTier(str, Enum):
-    TIER1 = "tier1"   # simple filters + aggregation → haiku
-    TIER2 = "tier2"   # CTEs + window functions → sonnet
-    TIER3 = "tier3"   # multi-hop joins + interacting conditions → extended thinking
+    TIER1 = "tier1"  # simple filters + aggregation → haiku
+    TIER2 = "tier2"  # CTEs + window functions → sonnet
+    # multi-hop joins + interacting conditions → extended thinking
+    TIER3 = "tier3"
 
 
 class ComplexityAssessment(BaseModel):
-    tier:          SQLComplexityTier
-    reasoning:     str
+    tier: SQLComplexityTier
+    reasoning: str
     key_challenges: list[str] = Field(default_factory=list)
 
 
@@ -54,24 +59,34 @@ def assess_sql_complexity(
     the right model tier upfront.
     """
     response = client.messages.create(
-        model="claude-haiku-4-5",   # cheap: this is just a classification
+        model="claude-haiku-4-5",  # cheap: this is just a classification
         max_tokens=300,
         system=(
-            "Classify the SQL complexity of a business requirement into one of three tiers.\n"
+            "Classify the SQL complexity of a business requirement into one "
+            "of three tiers.\n"
             "tier1: simple SELECT with filters and aggregation, no CTEs\n"
             "tier2: 1-3 CTEs, window functions, multi-table joins\n"
-            "tier3: 4+ CTEs, self-joins, interacting conditions requiring multi-step deliberation"
+            "tier3: 4+ CTEs, self-joins, interacting conditions requiring "
+            "multi-step deliberation"
         ),
-        tools=[{
-            "name": "assess",
-            "description": "Return the complexity assessment.",
-            "input_schema": ComplexityAssessment.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "assess",
+                "description": "Return the complexity assessment.",
+                "input_schema": ComplexityAssessment.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "assess"},
-        messages=[{"role": "user", "content": (
-            f"Requirement: {business_requirement}\n"
-            f"Available tables: {[t.get('name', t) for t in available_tables]}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Requirement: {business_requirement}\n"
+                    f"Available tables: "
+                    f"{[t.get('name', t) for t in available_tables]}"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     return ComplexityAssessment(**tool_call.input)
@@ -81,27 +96,28 @@ def assess_sql_complexity(
 # Guardrail stack
 # ============================================================
 
+
 @dataclass
 class GuardrailViolation:
-    rule:     str
-    severity: str   # "error" | "warning"
-    detail:   str
+    rule: str
+    severity: str  # "error" | "warning"
+    detail: str
 
 
 @dataclass
 class GuardrailResult:
-    passed:    bool
+    passed: bool
     violations: list[GuardrailViolation] = field(default_factory=list)
 
 
 BLOCKED_KEYWORDS = re.compile(
-    r'\b(DELETE|INSERT|UPDATE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL|EXECUTE)\b',
-    re.IGNORECASE
+    r"\b(DELETE|INSERT|UPDATE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL"
+    r"|EXECUTE)\b",
+    re.IGNORECASE,
 )
 
 CARTESIAN_PATTERN = re.compile(
-    r'\bCROSS\s+JOIN\b|\bFROM\s+\w+,\s*\w+\b',
-    re.IGNORECASE
+    r"\bCROSS\s+JOIN\b|\bFROM\s+\w+,\s*\w+\b", re.IGNORECASE
 )
 
 
@@ -118,38 +134,51 @@ def check_structural_guardrails(
     # No DML
     match = BLOCKED_KEYWORDS.search(sql)
     if match:
-        violations.append(GuardrailViolation(
-            rule="no_dml",
-            severity="error",
-            detail=f"Blocked keyword: {match.group(0)}",
-        ))
+        violations.append(
+            GuardrailViolation(
+                rule="no_dml",
+                severity="error",
+                detail=f"Blocked keyword: {match.group(0)}",
+            )
+        )
 
     # No semicolons (multi-statement prevention)
     if sql.count(";") > 0:
-        violations.append(GuardrailViolation(
-            rule="no_semicolons",
-            severity="error",
-            detail="Multi-statement queries are not allowed",
-        ))
+        violations.append(
+            GuardrailViolation(
+                rule="no_semicolons",
+                severity="error",
+                detail="Multi-statement queries are not allowed",
+            )
+        )
 
     # All tables must be in the allowed set
-    table_refs = re.findall(r'\bFROM\s+(\w+)|\bJOIN\s+(\w+)', sql, re.IGNORECASE)
+    table_refs = re.findall(
+        r"\bFROM\s+(\w+)|\bJOIN\s+(\w+)", sql, re.IGNORECASE
+    )
     for refs in table_refs:
         for ref in refs:
             if ref and ref.upper() not in {t.upper() for t in allowed_tables}:
-                violations.append(GuardrailViolation(
-                    rule="table_allowlist",
-                    severity="error",
-                    detail=f"Table '{ref}' is not in the allowed set: {sorted(allowed_tables)}",
-                ))
+                violations.append(
+                    GuardrailViolation(
+                        rule="table_allowlist",
+                        severity="error",
+                        detail=(
+                            f"Table '{ref}' is not in the allowed set: "
+                            f"{sorted(allowed_tables)}"
+                        ),
+                    )
+                )
 
     # No cartesian joins
     if CARTESIAN_PATTERN.search(sql):
-        violations.append(GuardrailViolation(
-            rule="no_cartesian",
-            severity="error",
-            detail="Cartesian or implicit CROSS JOIN detected",
-        ))
+        violations.append(
+            GuardrailViolation(
+                rule="no_cartesian",
+                severity="error",
+                detail="Cartesian or implicit CROSS JOIN detected",
+            )
+        )
 
     return GuardrailResult(
         passed=len([v for v in violations if v.severity == "error"]) == 0,
@@ -165,28 +194,39 @@ def check_anti_patterns(sql: str) -> GuardrailResult:
     violations = []
 
     # NULL equality comparison (NULL = NULL is always false)
-    if re.search(r'\=\s*NULL\b', sql, re.IGNORECASE):
-        violations.append(GuardrailViolation(
-            rule="null_equality",
-            severity="warning",
-            detail="Use IS NULL instead of = NULL",
-        ))
+    if re.search(r"\=\s*NULL\b", sql, re.IGNORECASE):
+        violations.append(
+            GuardrailViolation(
+                rule="null_equality",
+                severity="warning",
+                detail="Use IS NULL instead of = NULL",
+            )
+        )
 
     # Integer division (may truncate unexpectedly)
-    if re.search(r'\b\d+\s*/\s*\d+\b', sql):
-        violations.append(GuardrailViolation(
-            rule="integer_division",
-            severity="warning",
-            detail="Integer division truncates; cast to FLOAT: x::FLOAT / y",
-        ))
+    if re.search(r"\b\d+\s*/\s*\d+\b", sql):
+        violations.append(
+            GuardrailViolation(
+                rule="integer_division",
+                severity="warning",
+                detail=(
+                    "Integer division truncates; cast to FLOAT: x::FLOAT / y"
+                ),
+            )
+        )
 
     # UNION without ALL (deduplication is usually unintentional and expensive)
-    if re.search(r'\bUNION\s+(?!ALL)', sql, re.IGNORECASE):
-        violations.append(GuardrailViolation(
-            rule="union_without_all",
-            severity="warning",
-            detail="UNION deduplicates; use UNION ALL unless deduplication is intentional",
-        ))
+    if re.search(r"\bUNION\s+(?!ALL)", sql, re.IGNORECASE):
+        violations.append(
+            GuardrailViolation(
+                rule="union_without_all",
+                severity="warning",
+                detail=(
+                    "UNION deduplicates; use UNION ALL unless deduplication "
+                    "is intentional"
+                ),
+            )
+        )
 
     return GuardrailResult(
         passed=len([v for v in violations if v.severity == "error"]) == 0,
@@ -198,10 +238,11 @@ def check_anti_patterns(sql: str) -> GuardrailResult:
 # Plausibility evaluator
 # ============================================================
 
+
 class SQLEvaluation(BaseModel):
-    overall_score:  float = Field(ge=0.0, le=1.0)
-    passed:         bool
-    feedback:       str
+    overall_score: float = Field(ge=0.0, le=1.0)
+    passed: bool
+    feedback: str
     dimension_scores: dict[str, float] = Field(default_factory=dict)
 
 
@@ -216,22 +257,34 @@ def evaluate_sql_plausibility(
         model="claude-sonnet-5",
         max_tokens=600,
         system=(
-            "You are a data engineer evaluating generated SQL for correctness. "
-            "Score on: (1) semantic correctness vs requirement, (2) business rule compliance, "
+            "You are a data engineer evaluating generated SQL for "
+            "correctness. "
+            "Score on: (1) semantic correctness vs requirement, (2) "
+            "business rule compliance, "
             "(3) join correctness, (4) filter completeness. "
-            "Set passed=True only if all dimensions >= 0.75 and overall >= 0.80."
+            "Set passed=True only if all dimensions >= 0.75 and overall >= "
+            "0.80."
         ),
-        tools=[{
-            "name": "evaluate",
-            "description": "Return the SQL evaluation.",
-            "input_schema": SQLEvaluation.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "evaluate",
+                "description": "Return the SQL evaluation.",
+                "input_schema": SQLEvaluation.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "evaluate"},
-        messages=[{"role": "user", "content": (
-            f"Business requirement: {business_requirement}\n"
-            f"Business rules:\n" + "\n".join(f"  - {r}" for r in business_rules) +
-            f"\n\nTable schemas: {table_schemas}\n\nSQL to evaluate:\n```sql\n{sql}\n```"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Business requirement: {business_requirement}\n"
+                    f"Business rules:\n"
+                    + "\n".join(f"  - {r}" for r in business_rules)
+                    + f"\n\nTable schemas: {table_schemas}\n\nSQL to "
+                    f"evaluate:\n```sql\n{sql}\n```"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     return SQLEvaluation(**tool_call.input)
@@ -241,18 +294,20 @@ def evaluate_sql_plausibility(
 # Self-healing pipeline
 # ============================================================
 
+
 @dataclass
 class SelfHealingResult:
-    status:            str   # "passed" | "max_iterations_reached" | "blocked"
-    final_sql:         str
-    final_score:       float
-    iterations:        int
+    status: str  # "passed" | "max_iterations_reached" | "blocked"
+    final_sql: str
+    final_score: float
+    iterations: int
     iteration_history: list[dict] = field(default_factory=list)
 
 
 def _format_schema_block(table_schemas: dict) -> str:
     """Render table schemas for a prompt. Tolerant of both key conventions
-    (column_name/data_type from INFORMATION_SCHEMA, or name/type in examples)."""
+    (column_name/data_type from INFORMATION_SCHEMA, or name/type in
+    examples)."""
     lines = []
     for tbl, cols in table_schemas.items():
         lines.append(f"Table: {tbl}")
@@ -260,7 +315,9 @@ def _format_schema_block(table_schemas: dict) -> str:
             name = c.get("column_name") or c.get("name") or "?"
             dtype = c.get("data_type") or c.get("type") or "?"
             comment = c.get("comment")
-            lines.append(f"  {name} ({dtype})" + (f"  -- {comment}" if comment else ""))
+            lines.append(
+                f"  {name} ({dtype})" + (f"  -- {comment}" if comment else "")
+            )
     return "\n".join(lines)
 
 
@@ -280,15 +337,28 @@ def generate_safe_sql(
         model="claude-haiku-4-5",
         max_tokens=2048,
         system=(
-            "You are a senior Snowflake data engineer. Write read-only SELECT queries. "
-            "Use CTEs for clarity. Use CURRENT_DATE for date references. No DML."
+            "You are a senior Snowflake data engineer. Write read-only "
+            "SELECT queries. "
+            "Use CTEs for clarity. Use CURRENT_DATE for date references. No "
+            "DML."
         ),
-        messages=[{"role": "user", "content": (
-            f"Generate Snowflake SQL for the following requirement:\n{requirement}\n\n"
-            f"Available schemas:\n{schema_block}\n\n"
-            + (f"Snowflake dialect notes:\n{notes}\n\n" if notes else "")
-            + "Write a complete SELECT statement with a comment at the top."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Generate Snowflake SQL for the following "
+                    f"requirement:\n{requirement}\n\n"
+                    f"Available schemas:\n{schema_block}\n\n"
+                    + (
+                        f"Snowflake dialect notes:\n{notes}\n\n"
+                        if notes
+                        else ""
+                    )
+                    + "Write a complete SELECT statement with a comment at "
+                    "the top."
+                ),
+            }
+        ],
     )
     return {"sql": response.content[0].text.strip(), "thinking_summary": None}
 
@@ -301,36 +371,62 @@ def generate_complex_sql(
     """
     Generate Tier 3 SQL using extended thinking mode.
     Extended thinking lets the model reason through multi-step logic before
-    producing the final SQL, which significantly reduces window-function errors.
+    producing the final SQL, which significantly reduces window-function
+    errors.
     """
     schema_block = _format_schema_block(table_schemas)
-    notes = "\n".join(f"- {n}" for n in (dialect_notes or [
-        "Prefer LEFT JOIN to preserve all rows even without matching rows",
-        "Use CTEs (WITH) for readability — label each CTE with its purpose",
-    ]))
+    notes = "\n".join(
+        f"- {n}"
+        for n in (
+            dialect_notes
+            or [
+                "Prefer LEFT JOIN to preserve all rows even without "
+                "matching rows",
+                "Use CTEs (WITH) for readability — label each CTE with its "
+                "purpose",
+            ]
+        )
+    )
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=16000,
-        thinking={"type": "adaptive"},       # Sonnet 5+ rejects manual budget_tokens (400)
+        thinking={
+            "type": "adaptive"
+        },  # Sonnet 5+ rejects manual budget_tokens (400)
         output_config={"effort": "high"},
         system=(
-            "You are a senior Snowflake data engineer generating production-quality SQL. "
-            "You write clear, well-commented CTEs. You never write Cartesian joins. "
-            "You always use LEFT JOIN when one side may have no matching rows. No DML."
+            "You are a senior Snowflake data engineer generating "
+            "production-quality SQL. "
+            "You write clear, well-commented CTEs. You never write "
+            "Cartesian joins. "
+            "You always use LEFT JOIN when one side may have no matching "
+            "rows. No DML."
         ),
-        messages=[{"role": "user", "content": (
-            f"Generate Snowflake SQL for the following requirement:\n{requirement}\n\n"
-            f"Available schemas:\n{schema_block}\n\n"
-            f"Snowflake dialect notes:\n{notes}\n\n"
-            "Write a complete SELECT statement using CTEs. "
-            "Add a comment at the top of each CTE explaining its purpose."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Generate Snowflake SQL for the following "
+                    f"requirement:\n{requirement}\n\n"
+                    f"Available schemas:\n{schema_block}\n\n"
+                    f"Snowflake dialect notes:\n{notes}\n\n"
+                    "Write a complete SELECT statement using CTEs. "
+                    "Add a comment at the top of each CTE explaining its "
+                    "purpose."
+                ),
+            }
+        ],
     )
     sql = next((b.text for b in response.content if hasattr(b, "text")), None)
     if sql is None:
-        return {"error": "No text block found in model response",
-                "sql": "", "thinking_summary": None}
-    thinking = next((b.thinking for b in response.content if hasattr(b, "thinking")), None)
+        return {
+            "error": "No text block found in model response",
+            "sql": "",
+            "thinking_summary": None,
+        }
+    thinking = next(
+        (b.thinking for b in response.content if hasattr(b, "thinking")), None
+    )
     return {"sql": sql.strip(), "thinking_summary": thinking}
 
 
@@ -363,19 +459,25 @@ def self_healing_sql_pipeline(
         complexity_tier = assessment.tier.value
 
     history = []
-    best    = {"sql": "", "score": 0.0}
+    best = {"sql": "", "score": 0.0}
     feedback = ""
 
     for iteration in range(1, max_iterations + 1):
-        # Fold business rules (and any correction feedback) into the requirement,
+        # Fold business rules (and any correction feedback) into the
+        # requirement,
         # then route to the tier-appropriate generator.
         rules_block = "\n".join(f"  - {r}" for r in business_rules)
-        requirement = f"{business_requirement}\n\nBusiness rules to enforce:\n{rules_block}"
+        requirement = (
+            f"{business_requirement}\n\nBusiness rules to enforce:\n"
+            f"{rules_block}"
+        )
         if feedback:
             requirement += (
-                "\n\nPREVIOUS ATTEMPT FAILED VALIDATION — FIX THESE ISSUES:\n"
+                "\n\nPREVIOUS ATTEMPT FAILED VALIDATION — "
+                "FIX THESE ISSUES:\n"
                 f"{feedback}\n\n"
-                "Generate corrected SQL that addresses every issue listed above."
+                "Generate corrected SQL that addresses every issue listed "
+                "above."
             )
 
         if complexity_tier == SQLComplexityTier.TIER3.value:
@@ -387,18 +489,35 @@ def self_healing_sql_pipeline(
         # Layer 1: structural guardrails
         guardrail_result = check_structural_guardrails(sql, allowed_tables)
         if not guardrail_result.passed:
-            errors = [v.detail for v in guardrail_result.violations if v.severity == "error"]
-            feedback = f"Structural errors (fix before retrying): {'; '.join(errors)}"
-            history.append({"iteration": iteration, "status": "guardrail_error",
-                           "score": 0.0, "feedback": feedback})
+            errors = [
+                v.detail
+                for v in guardrail_result.violations
+                if v.severity == "error"
+            ]
+            feedback = (
+                f"Structural errors (fix before retrying): "
+                f"{'; '.join(errors)}"
+            )
+            history.append(
+                {
+                    "iteration": iteration,
+                    "status": "guardrail_error",
+                    "score": 0.0,
+                    "feedback": feedback,
+                }
+            )
             continue
 
         # Layer 2: anti-pattern check
         anti_pattern_result = check_anti_patterns(sql)
         anti_pattern_feedback = (
-            "Anti-patterns detected (fix): " +
-            "; ".join(v.detail for v in anti_pattern_result.violations)
-        ) if anti_pattern_result.violations else ""
+            (
+                "Anti-patterns detected (fix): "
+                + "; ".join(v.detail for v in anti_pattern_result.violations)
+            )
+            if anti_pattern_result.violations
+            else ""
+        )
 
         # Layer 3: plausibility eval
         eval_result = evaluate_sql_plausibility(
@@ -411,17 +530,23 @@ def self_healing_sql_pipeline(
         if not eval_result.passed:
             combined_feedback_parts.append(eval_result.feedback)
 
-        history.append({
-            "iteration": iteration,
-            "status":    "passed" if eval_result.passed and not anti_pattern_result.violations else "failed",
-            "score":     eval_result.overall_score,
-            "feedback":  "\n".join(combined_feedback_parts),
-        })
+        history.append(
+            {
+                "iteration": iteration,
+                "status": "passed"
+                if eval_result.passed and not anti_pattern_result.violations
+                else "failed",
+                "score": eval_result.overall_score,
+                "feedback": "\n".join(combined_feedback_parts),
+            }
+        )
 
         if eval_result.overall_score > best["score"]:
             best = {"sql": sql, "score": eval_result.overall_score}
 
-        if eval_result.passed and not any(v.severity == "error" for v in anti_pattern_result.violations):
+        if eval_result.passed and not any(
+            v.severity == "error" for v in anti_pattern_result.violations
+        ):
             return SelfHealingResult(
                 status="passed",
                 final_sql=sql,
@@ -444,11 +569,11 @@ def self_healing_sql_pipeline(
 if __name__ == "__main__":
     schemas = {
         "OPSPU.MARTS.FCT_DEVICE_ANOMALIES": [
-            {"name": "device_id",    "type": "VARCHAR"},
-            {"name": "event_date",   "type": "DATE"},
+            {"name": "device_id", "type": "VARCHAR"},
+            {"name": "event_date", "type": "DATE"},
             {"name": "anomaly_type", "type": "VARCHAR"},
-            {"name": "region_code",  "type": "VARCHAR"},
-            {"name": "severity",     "type": "VARCHAR"},
+            {"name": "region_code", "type": "VARCHAR"},
+            {"name": "severity", "type": "VARCHAR"},
         ]
     }
     rules = [
@@ -457,10 +582,16 @@ if __name__ == "__main__":
         "Return counts grouped by region_code and anomaly_type",
     ]
     result = self_healing_sql_pipeline(
-        business_requirement="Count high-severity device anomalies by region and type for this month",
+        business_requirement=(
+            "Count high-severity device anomalies by region and type for "
+            "this month"
+        ),
         business_rules=rules,
         table_schemas=schemas,
         allowed_tables=set(schemas.keys()),
     )
-    print(f"Status: {result.status}  Score: {result.final_score:.2f}  Iterations: {result.iterations}")
+    print(
+        f"Status: {result.status}  Score: {result.final_score:.2f}  "
+        f"Iterations: {result.iterations}"
+    )
     print(f"\nFinal SQL:\n{result.final_sql}")

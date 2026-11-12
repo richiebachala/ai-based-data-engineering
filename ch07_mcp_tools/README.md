@@ -30,21 +30,27 @@ behavioral instruction to the model. Ambiguous documentation = ambiguous behavio
 
 ```python
 # Call 1: no approval_token → returns proposed change + token
-result = update_column_description(request=UpdateColumnDescriptionRequest(
-    table_fqn="OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS",
-    column_name="active_since",
-    new_description="Timestamp of first qualifying event in trailing 30-day window.",
-    reason="Clarify business meaning for catalog consumers",
-))
+result = update_column_description(
+    request=UpdateColumnDescriptionRequest(
+        table_fqn="OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS",
+        column_name="active_since",
+        new_description=(
+            "Timestamp of first qualifying event in trailing 30-day window."
+        ),
+        reason="Clarify business meaning for catalog consumers",
+    )
+)
 # result["status"] == "approval_required"
 # result["approval_token"] == "<hmac_token>"
 
 # Human reviews the proposed change and approves
 # Call 2: include the approval token
-result = update_column_description(request=UpdateColumnDescriptionRequest(
-    ...,
-    approval_token="<hmac_token from call 1>",
-))
+result = update_column_description(
+    request=UpdateColumnDescriptionRequest(
+        ...,
+        approval_token="<hmac_token from call 1>",
+    )
+)
 # result["status"] == "executed"
 ```
 

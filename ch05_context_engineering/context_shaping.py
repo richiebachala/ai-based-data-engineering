@@ -2,7 +2,8 @@
 # Section: 5.3 Context shaping — assembly, budget, deduplication
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -22,9 +23,9 @@ from typing import Optional
 
 @dataclass
 class AssembledContext:
-    primary:       str           # always-in-context artifacts (pinned)
-    supplementary: list          # retrieved + prioritized chunks
-    tokens_used:   int
+    primary: str  # always-in-context artifacts (pinned)
+    supplementary: list  # retrieved + prioritized chunks
+    tokens_used: int
     tokens_budget: int
     dropped_sources: list[str] = field(default_factory=list)
 
@@ -32,7 +33,9 @@ class AssembledContext:
         """Format the assembled context for injection into the prompt."""
         parts = []
         if self.primary:
-            parts.append(f"--- Platform context (always present) ---\n{self.primary}")
+            parts.append(
+                f"--- Platform context (always present) ---\n{self.primary}"
+            )
         if self.supplementary:
             sup_text = "\n\n".join(
                 f"[{c.source_type.upper()} | {c.source}]\n{c.content}"
@@ -49,20 +52,20 @@ class AssembledContext:
 
 # Token budget constants for OpsPulse components
 COMPONENT_BUDGETS = {
-    "sql_generation_tier1":    2_000,
-    "sql_generation_tier2":    4_000,
-    "sql_generation_tier3":    8_000,
-    "column_description":      3_000,
-    "anomaly_triage":          5_000,
-    "lineage_impact":          8_000,
+    "sql_generation_tier1": 2_000,
+    "sql_generation_tier2": 4_000,
+    "sql_generation_tier3": 8_000,
+    "column_description": 3_000,
+    "anomaly_triage": 5_000,
+    "lineage_impact": 8_000,
 }
 
 AUTHORITY_ORDER = {
-    "schema":      1,
-    "dbt_model":   2,
-    "runbook":     3,
-    "incident":    4,
-    "policy":      5,
+    "schema": 1,
+    "dbt_model": 2,
+    "runbook": 3,
+    "incident": 4,
+    "policy": 5,
     "sample_data": 6,
 }
 
@@ -92,7 +95,9 @@ def deduplicate_chunks(chunks: list) -> list:
     """
     kept = []
     for chunk in chunks:
-        if not any(_is_near_duplicate(chunk.content, k.content) for k in kept):
+        if not any(
+            _is_near_duplicate(chunk.content, k.content) for k in kept
+        ):
             kept.append(chunk)
     return kept
 
@@ -100,15 +105,16 @@ def deduplicate_chunks(chunks: list) -> list:
 def prioritize_chunks(chunks: list) -> list:
     """
     Sort chunks by:
-    1. Authority tier (schema > dbt_model > runbook > incident > policy > sample)
+    1. Authority tier (schema > dbt_model > runbook > incident > policy >
+    sample)
     2. RRF score (higher is better) within each tier
     """
     return sorted(
         chunks,
         key=lambda c: (
-            AUTHORITY_ORDER.get(getattr(c, 'source_type', ''), 99),
-            -(getattr(c, 'rrf_score', 0.0)),
-        )
+            AUTHORITY_ORDER.get(getattr(c, "source_type", ""), 99),
+            -(getattr(c, "rrf_score", 0.0)),
+        ),
     )
 
 
@@ -127,20 +133,22 @@ def assemble_context(
       3. Prioritize by authority + RRF score
       4. Fill budget greedily; track dropped sources
     """
-    deduped    = deduplicate_chunks(retrieved_chunks)
+    deduped = deduplicate_chunks(retrieved_chunks)
     prioritized = prioritize_chunks(deduped)
 
     tokens_used = pinned_token_estimate
-    included    = []
-    dropped     = []
+    included = []
+    dropped = []
 
     for chunk in prioritized:
-        chunk_tokens = getattr(chunk, 'token_estimate', len(chunk.content) // 3)
+        chunk_tokens = getattr(
+            chunk, "token_estimate", len(chunk.content) // 3
+        )
         if tokens_used + chunk_tokens <= token_budget:
             included.append(chunk)
             tokens_used += chunk_tokens
         else:
-            dropped.append(getattr(chunk, 'source', 'unknown'))
+            dropped.append(getattr(chunk, "source", "unknown"))
 
     return AssembledContext(
         primary=pinned_artifacts,
@@ -162,9 +170,17 @@ if __name__ == "__main__":
             self.token_estimate = len(content) // 3
 
     chunks = [
-        FakeChunk("FCT_ACTIVE_CUSTOMERS", "schema", "customer_id VARCHAR..." * 20),
-        FakeChunk("fct_active_customers", "dbt_model", "Model: active customer fact..." * 10),
-        FakeChunk("incident-001", "incident", "Null rate spike on 2025-03-01" * 5),
+        FakeChunk(
+            "FCT_ACTIVE_CUSTOMERS", "schema", "customer_id VARCHAR..." * 20
+        ),
+        FakeChunk(
+            "fct_active_customers",
+            "dbt_model",
+            "Model: active customer fact..." * 10,
+        ),
+        FakeChunk(
+            "incident-001", "incident", "Null rate spike on 2025-03-01" * 5
+        ),
     ]
 
     ctx = assemble_context(

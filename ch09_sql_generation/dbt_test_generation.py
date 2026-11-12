@@ -2,8 +2,9 @@
 # Section: 9.4 dbt test generation from column profiles
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Generate dbt tests from column profiles and entity detection.
@@ -31,16 +32,19 @@ client = anthropic.Anthropic()
 # Data models for dbt test spec
 # ============================================================
 
+
 class DbtTest(BaseModel):
-    test_type:  str           # "not_null" | "unique" | "accepted_values" | "relationships"
-    column:     str
-    options:    dict = Field(default_factory=dict)
-    comment:    str = ""
+    test_type: (
+        str  # "not_null" | "unique" | "accepted_values" | "relationships"
+    )
+    column: str
+    options: dict = Field(default_factory=dict)
+    comment: str = ""
 
 
 class DbtTestSuite(BaseModel):
     model_name: str
-    tests:      list[DbtTest]
+    tests: list[DbtTest]
     yaml_block: str = ""
 
 
@@ -48,10 +52,12 @@ class DbtTestSuite(BaseModel):
 # Rule-based test generation from profiles
 # ============================================================
 
+
 def generate_dbt_tests(
     model_name: str,
-    profiles: list,     # list of ColumnProfile from ch08_ingestion/schema_profiling.py
-    entity_detection,   # TableEntityDetection from schema_profiling.py
+    # list of ColumnProfile from ch08_ingestion/schema_profiling.py
+    profiles: list,
+    entity_detection,  # TableEntityDetection from schema_profiling.py
     sample_values: dict[str, list] | None = None,
 ) -> DbtTestSuite:
     """
@@ -74,62 +80,85 @@ def generate_dbt_tests(
 
         # Rule 1: zero-null identifiers → not_null + unique
         if profile.null_pct == 0.0 and role in ("identifier", "foreign_key"):
-            tests.append(DbtTest(
-                test_type="not_null",
-                column=col,
-                comment=f"Identifier column; 0% null in profile",
-            ))
-            if role == "identifier":
-                tests.append(DbtTest(
-                    test_type="unique",
+            tests.append(
+                DbtTest(
+                    test_type="not_null",
                     column=col,
-                    comment=f"Identifier column; high-cardinality in profile",
-                ))
+                    comment=f"Identifier column; 0% null in profile",
+                )
+            )
+            if role == "identifier":
+                tests.append(
+                    DbtTest(
+                        test_type="unique",
+                        column=col,
+                        comment=(
+                            f"Identifier column; high-cardinality in profile"
+                        ),
+                    )
+                )
 
         # Rule 2: FK columns → relationships test
         if fk_target and role == "foreign_key":
-            ref_table, ref_col = fk_target.split(".") if "." in fk_target else (fk_target, col)
-            tests.append(DbtTest(
-                test_type="relationships",
-                column=col,
-                options={
-                    "to": f"ref('{ref_table.lower()}')",
-                    "field": ref_col,
-                },
-                comment=f"FK detected in entity classification",
-            ))
+            ref_table, ref_col = (
+                fk_target.split(".") if "." in fk_target else (fk_target, col)
+            )
+            tests.append(
+                DbtTest(
+                    test_type="relationships",
+                    column=col,
+                    options={
+                        "to": f"ref('{ref_table.lower()}')",
+                        "field": ref_col,
+                    },
+                    comment=f"FK detected in entity classification",
+                )
+            )
 
         # Rule 3: low-cardinality dimensions → accepted_values
         if profile.approx_distinct <= 20 and role == "dimension":
             if sample_values and col in sample_values:
-                values = sorted(set(str(v) for v in sample_values[col] if v is not None))
-                tests.append(DbtTest(
-                    test_type="accepted_values",
-                    column=col,
-                    options={"values": values},
-                    comment=f"Low-cardinality dimension ({profile.approx_distinct} distinct values)",
-                ))
+                values = sorted(
+                    set(str(v) for v in sample_values[col] if v is not None)
+                )
+                tests.append(
+                    DbtTest(
+                        test_type="accepted_values",
+                        column=col,
+                        options={"values": values},
+                        comment=(
+                            f"Low-cardinality dimension "
+                            f"({profile.approx_distinct} distinct values)"
+                        ),
+                    )
+                )
 
         # Rule 4: BOOLEAN columns → accepted_values [true, false]
         if "BOOL" in dtype or role == "flag":
-            tests.append(DbtTest(
-                test_type="accepted_values",
-                column=col,
-                options={"values": [True, False]},
-                comment=f"Boolean/flag column",
-            ))
+            tests.append(
+                DbtTest(
+                    test_type="accepted_values",
+                    column=col,
+                    options={"values": [True, False]},
+                    comment=f"Boolean/flag column",
+                )
+            )
 
         # Rule 5: non-null timestamps (event time should never be null)
         if "TIMESTAMP" in dtype and "_at" in col.lower():
-            tests.append(DbtTest(
-                test_type="not_null",
-                column=col,
-                comment=f"Event timestamp; should never be null",
-            ))
+            tests.append(
+                DbtTest(
+                    test_type="not_null",
+                    column=col,
+                    comment=f"Event timestamp; should never be null",
+                )
+            )
 
     # Build YAML block
     yaml_block = _tests_to_yaml(model_name, tests)
-    return DbtTestSuite(model_name=model_name, tests=tests, yaml_block=yaml_block)
+    return DbtTestSuite(
+        model_name=model_name, tests=tests, yaml_block=yaml_block
+    )
 
 
 def _tests_to_yaml(model_name: str, tests: list[DbtTest]) -> str:
@@ -146,11 +175,17 @@ def _tests_to_yaml(model_name: str, tests: list[DbtTest]) -> str:
     ]
     for col, col_tests in by_col.items():
         lines.append(f"      - name: {col}")
-        lines.append(f"        data_tests:  # dbt v1.8+; use 'tests:' for v1.7 and earlier")
+        lines.append(
+            f"        data_tests:  # dbt v1.8+; use 'tests:' for v1.7 and "
+            f"earlier"
+        )
         for t in col_tests:
             if t.options:
                 lines.append(f"          - {t.test_type}:")
-                lines.append("              arguments:  # dbt v1.10.5+: test inputs nest under arguments")
+                lines.append(
+                    "              arguments:  # dbt v1.10.5+: test inputs "
+                    "nest under arguments"
+                )
                 for k, v in t.options.items():
                     lines.append(f"                {k}: {json.dumps(v)}")
             else:
@@ -162,6 +197,7 @@ def _tests_to_yaml(model_name: str, tests: list[DbtTest]) -> str:
 # ============================================================
 # LLM-augmented test generation for complex rules
 # ============================================================
+
 
 def generate_complex_tests(
     model_name: str,
@@ -178,26 +214,36 @@ def generate_complex_tests(
         model="claude-sonnet-5",
         max_tokens=1000,
         system=(
-            "You are a dbt data quality engineer. Write SQL tests that return "
+            "You are a dbt data quality engineer. Write SQL tests that "
+            "return "
             "ZERO rows when the test passes (dbt singular test pattern). "
             "Use Snowflake SQL syntax."
         ),
-        messages=[{"role": "user", "content": (
-            f"Model: {model_name}\n"
-            f"Schema: {json.dumps(table_schema, indent=2)}\n"
-            f"Business rules to test:\n" +
-            "\n".join(f"  {i+1}. {r}" for i, r in enumerate(business_rules)) +
-            "\n\nGenerate one SQL test per rule. Return as JSON array of SQL strings."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Model: {model_name}\n"
+                    f"Schema: {json.dumps(table_schema, indent=2)}\n"
+                    f"Business rules to test:\n"
+                    + "\n".join(
+                        f"  {i + 1}. {r}"
+                        for i, r in enumerate(business_rules)
+                    )
+                    + "\n\nGenerate one SQL test per rule. Return as JSON "
+                    "array of SQL strings."
+                ),
+            }
+        ],
     )
     try:
         return json.loads(response.content[0].text)
     except json.JSONDecodeError:
         # Extract SQL blocks if JSON parsing fails
-        blocks = re.findall(r'```sql\n(.*?)\n```', response.content[0].text, re.DOTALL)
+        blocks = re.findall(
+            r"```sql\n(.*?)\n```", response.content[0].text, re.DOTALL
+        )
         return blocks
-
-
 
 
 if __name__ == "__main__":
@@ -207,23 +253,23 @@ if __name__ == "__main__":
 
     class FakeRole(str, Enum):
         IDENTIFIER = "identifier"
-        DIMENSION  = "dimension"
-        FLAG       = "flag"
+        DIMENSION = "dimension"
+        FLAG = "flag"
 
     @dataclass
     class FakeProfile:
         column_name: str
-        data_type:   str
-        null_pct:    float
+        data_type: str
+        null_pct: float
         approx_distinct: int
         min_val = None
         max_val = None
 
     @dataclass
     class FakeColEntity:
-        column_name:    str
-        role:           FakeRole
-        pii_class:      type = None
+        column_name: str
+        role: FakeRole
+        pii_class: type = None
         likely_joins_to: str = None
 
     @dataclass
@@ -234,18 +280,22 @@ if __name__ == "__main__":
         columns: list = None
 
     profiles = [
-        FakeProfile("device_id",   "VARCHAR",  0.0, 10000),
-        FakeProfile("region_code", "VARCHAR",  0.0, 5),
-        FakeProfile("passed",      "BOOLEAN",  0.0, 2),
+        FakeProfile("device_id", "VARCHAR", 0.0, 10000),
+        FakeProfile("region_code", "VARCHAR", 0.0, 5),
+        FakeProfile("passed", "BOOLEAN", 0.0, 2),
     ]
     entity = FakeDetection()
     entity.columns = [
-        FakeColEntity("device_id",   FakeRole.IDENTIFIER),
+        FakeColEntity("device_id", FakeRole.IDENTIFIER),
         FakeColEntity("region_code", FakeRole.DIMENSION),
-        FakeColEntity("passed",      FakeRole.FLAG),
+        FakeColEntity("passed", FakeRole.FLAG),
     ]
 
-    suite = generate_dbt_tests("device_calibration", profiles, entity,
-                               sample_values={"region_code": ["US", "EMEA", "APAC"]})
+    suite = generate_dbt_tests(
+        "device_calibration",
+        profiles,
+        entity,
+        sample_values={"region_code": ["US", "EMEA", "APAC"]},
+    )
     print(f"Generated {len(suite.tests)} tests:")
     print(suite.yaml_block)

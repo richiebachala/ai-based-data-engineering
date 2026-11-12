@@ -2,7 +2,8 @@
 # Section: 7.4 Operations server (approval-gated writes)
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -39,13 +40,16 @@ mcp = MCPServer(
         "You are connected to the OpsPulse operations layer. "
         "This server can modify data and catalog metadata. "
         "ALL write operations require a human-approved token. "
-        "On the first call, you receive an approval_token to present to a human. "
+        "On the first call, you receive an approval_token to present to a "
+        "human. "
         "The human approves the change and provides the token back to you. "
         "Include the token in the second call to execute."
     ),
 )
 
-_APPROVAL_SECRET = os.environ.get("APPROVAL_HMAC_SECRET", "change-me-in-production")
+_APPROVAL_SECRET = os.environ.get(
+    "APPROVAL_HMAC_SECRET", "change-me-in-production"
+)
 if _APPROVAL_SECRET == "change-me-in-production":
     raise RuntimeError(
         "APPROVAL_HMAC_SECRET environment variable is not set. "
@@ -54,22 +58,32 @@ if _APPROVAL_SECRET == "change-me-in-production":
 
 
 class UpdateColumnDescriptionRequest(BaseModel):
-    table_fqn:       str  = Field(description="Fully-qualified table name (DB.SCHEMA.TABLE)")
-    column_name:     str  = Field(description="Column name to update")
-    new_description: str  = Field(description="New column description (max 150 chars)")
-    reason:          str  = Field(description="Business justification for this change")
-    approval_token:  Optional[str] = Field(
+    table_fqn: str = Field(
+        description="Fully-qualified table name (DB.SCHEMA.TABLE)"
+    )
+    column_name: str = Field(description="Column name to update")
+    new_description: str = Field(
+        description="New column description (max 150 chars)"
+    )
+    reason: str = Field(description="Business justification for this change")
+    approval_token: Optional[str] = Field(
         default=None,
-        description="Approval token from a previous call. Omit on the first call."
+        description=(
+            "Approval token from a previous call. Omit on the first call."
+        ),
     )
 
 
 def _safe_identifier(name: str) -> str:
     """Validate a Snowflake identifier to prevent SQL injection."""
     # Allow only alphanumeric, underscore, and dot (for FQN)
-    if not re.match(r'^[A-Za-z_][A-Za-z0-9_.]*$', name):
-        # ToolError: in an mcp v2 tool handler only a ToolError message reaches the agent.
-        raise ToolError(f"Invalid identifier: {name!r}. Use letters, digits, underscores, and dots only.")
+    if not re.match(r"^[A-Za-z_][A-Za-z0-9_.]*$", name):
+        # ToolError: in an mcp v2 tool handler only a ToolError message
+        # reaches the agent.
+        raise ToolError(
+            f"Invalid identifier: {name!r}. Use letters, digits, "
+            f"underscores, and dots only."
+        )
     return name
 
 
@@ -79,7 +93,7 @@ def _create_approval_token(request_data: dict) -> str:
     The token is invalidated if any request field changes.
     """
     payload = json.dumps(request_data, sort_keys=True)
-    token   = hmac.new(
+    token = hmac.new(
         _APPROVAL_SECRET.encode(),
         payload.encode(),
         hashlib.sha256,
@@ -112,12 +126,14 @@ def _log_mutation_audit(
 ) -> str:
     event_id = str(uuid.uuid4())
     event = {
-        "event_id":       event_id,
-        "event_type":     "mutation_executed",
-        "tool":           tool,
-        "timestamp":      datetime.now(timezone.utc).isoformat(),
-        "query_id":       query_id,
-        "request_hash":   hashlib.sha256(json.dumps(request, sort_keys=True).encode()).hexdigest()[:16],
+        "event_id": event_id,
+        "event_type": "mutation_executed",
+        "tool": tool,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "query_id": query_id,
+        "request_hash": hashlib.sha256(
+            json.dumps(request, sort_keys=True).encode()
+        ).hexdigest()[:16],
         "approval_token": approval_token,
     }
     with open("mcp_audit.jsonl", "a") as f:
@@ -144,8 +160,10 @@ def update_column_description(
     Args:
         request: UpdateColumnDescriptionRequest with all change details
     """
-    # Validate inputs before anything else: a malformed identifier is rejected with a
-    # clear ToolError on the first call, so no human is asked to approve a change that
+    # Validate inputs before anything else: a malformed identifier is rejected
+    # with a
+    # clear ToolError on the first call, so no human is asked to approve a
+    # change that
     # can never run and no privileged connection is opened for bad input.
     safe_fqn = _safe_identifier(request.table_fqn)
     safe_col = _safe_identifier(request.column_name)
@@ -160,17 +178,18 @@ def update_column_description(
         request_data = request.model_dump(exclude={"approval_token"})
         token = _create_approval_token(request_data)
         return {
-            "status":           "approval_required",
-            "approval_token":   token,
-            "proposed_change":  {
-                "table":      request.table_fqn,
-                "column":     request.column_name,
-                "new_value":  request.new_description,
-                "reason":     request.reason,
+            "status": "approval_required",
+            "approval_token": token,
+            "proposed_change": {
+                "table": request.table_fqn,
+                "column": request.column_name,
+                "new_value": request.new_description,
+                "reason": request.reason,
             },
             "instructions": (
                 "A human must review and approve this change. "
-                "Call update_column_description again with approval_token set "
+                "Call update_column_description again with approval_token "
+                "set "
                 "to the value above."
             ),
         }
@@ -179,9 +198,12 @@ def update_column_description(
     request_data = request.model_dump(exclude={"approval_token"})
     if not _validate_approval_token(approval_token, request_data):
         return {
-            "error":      "INVALID_TOKEN",
-            "retryable":  False,
-            "message":    "Approval token is invalid or expired. Start a new approval flow.",
+            "error": "INVALID_TOKEN",
+            "retryable": False,
+            "message": (
+                "Approval token is invalid or expired. Start a new approval "
+                "flow."
+            ),
         }
 
     conn = _get_privileged_connection()
@@ -203,15 +225,19 @@ def update_column_description(
         )
 
         return {
-            "status":         "executed",
-            "query_id":       query_id,
+            "status": "executed",
+            "query_id": query_id,
             "audit_event_id": audit_id,
         }
 
     except ValueError as e:
         return {"error": "VALIDATION", "retryable": False, "message": str(e)}
     except Exception as e:
-        return {"error": "RUNTIME", "retryable": False, "message": str(e)[:500]}
+        return {
+            "error": "RUNTIME",
+            "retryable": False,
+            "message": str(e)[:500],
+        }
 
 
 if __name__ == "__main__":

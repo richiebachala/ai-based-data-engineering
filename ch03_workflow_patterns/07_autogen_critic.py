@@ -2,7 +2,8 @@
 # Section: 3.2 Agent frameworks — AutoGen / AG2
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -20,25 +21,31 @@ not on the AssistantAgent. This is the corrected implementation.
 try:
     import autogen
 except ImportError:
-    raise ImportError("pip install 'ag2~=0.2'  # AG2 is the active fork of AutoGen")
+    raise ImportError(
+        "pip install 'ag2~=0.2'  # AG2 is the active fork of AutoGen"
+    )
 
 import os
 
 # --- Model configuration ---
 
 LLM_CONFIG_GENERATOR = {
-    "config_list": [{
-        "model":   "claude-haiku-4-5",
-        "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-    }],
+    "config_list": [
+        {
+            "model": "claude-haiku-4-5",
+            "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        }
+    ],
     "temperature": 0.7,
 }
 
 LLM_CONFIG_CRITIC = {
-    "config_list": [{
-        "model":   "claude-sonnet-5",
-        "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
-    }],
+    "config_list": [
+        {
+            "model": "claude-sonnet-5",
+            "api_key": os.environ.get("ANTHROPIC_API_KEY", ""),
+        }
+    ],
     "temperature": 0.3,
 }
 
@@ -107,7 +114,8 @@ def review_sql_with_agents(
             f"Write a Snowflake SELECT query for this business question:\n"
             f"{business_question}\n\n"
             f"Table schema:\n{table_schema}\n\n"
-            "Use CURRENT_DATE for date references. Add LIMIT 10000 unless aggregating."
+            "Use CURRENT_DATE for date references. Add LIMIT 10000 unless "
+            "aggregating."
         ),
     )
 
@@ -120,7 +128,8 @@ def review_sql_with_agents(
 if __name__ == "__main__":
     schema = """
     OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS
-    Columns: customer_id VARCHAR, active_since TIMESTAMP_NTZ, region_code VARCHAR
+    Columns: customer_id VARCHAR, active_since TIMESTAMP_NTZ, region_code \
+VARCHAR
     """
     question = "How many active customers are in the EMEA region as of today?"
 

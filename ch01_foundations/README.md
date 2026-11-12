@@ -24,7 +24,8 @@ dataset) and scores a real raw table.
 
 ```bash
 pip install -r ../setup/requirements-setup.txt
-python ../setup/opspulse_generator.py --target duckdb --out ../setup/opspulse.duckdb
+python ../setup/opspulse_generator.py --target duckdb \
+    --out ../setup/opspulse.duckdb
 
 python ai_readiness_checklist.py
 ```

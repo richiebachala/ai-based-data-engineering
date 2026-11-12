@@ -2,7 +2,8 @@
 # Section: 6.2 Building the lineage graph with NetworkX
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -27,15 +28,18 @@ import re
 
 @dataclass
 class GraphNode:
-    node_id:     str
-    node_type:   str    # "table" | "column" | "metric" | "team" | "process" | "policy" | "dashboard"
-    name:        str
-    metadata:    dict = field(default_factory=dict)
+    node_id: str
+    # "table" | "column" | "metric" | "team" | "process" | "policy"
+    # | "dashboard"
+    node_type: str
+    name: str
+    metadata: dict = field(default_factory=dict)
 
 
 # ============================================================
 # Build graph from dbt manifest
 # ============================================================
+
 
 def build_lineage_graph_from_manifest(
     manifest: dict,
@@ -57,21 +61,27 @@ def build_lineage_graph_from_manifest(
             continue
         model_name = node.get("name", "")
         node_id = f"dbt://opspu/{model_name}"
-        G.add_node(node_id, **{
-            "node_type": "table",
-            "name": model_name,
-            "schema": node.get("schema", ""),
-            "description": node.get("description", ""),
-            "columns": list(node.get("columns", {}).keys()),
-        })
+        G.add_node(
+            node_id,
+            **{
+                "node_type": "table",
+                "name": model_name,
+                "schema": node.get("schema", ""),
+                "description": node.get("description", ""),
+                "columns": list(node.get("columns", {}).keys()),
+            },
+        )
 
     # Add source nodes
     for key, source in sources.items():
         source_id = f"source://opspu/{source.get('name', key)}"
-        G.add_node(source_id, **{
-            "node_type": "source",
-            "name": source.get("name", key),
-        })
+        G.add_node(
+            source_id,
+            **{
+                "node_type": "source",
+                "name": source.get("name", key),
+            },
+        )
 
     # Add dependency edges
     for key, node in nodes.items():
@@ -87,8 +97,7 @@ def build_lineage_graph_from_manifest(
             else:
                 continue
             if dep_id in G.nodes:
-                G.add_edge(dep_id, model_id,
-                           edge_type="dbt_dependency")
+                G.add_edge(dep_id, model_id, edge_type="dbt_dependency")
 
     return G
 
@@ -96,6 +105,7 @@ def build_lineage_graph_from_manifest(
 # ============================================================
 # Extend graph from Snowflake ACCESS_HISTORY (column-level lineage)
 # ============================================================
+
 
 def extend_graph_from_access_history(
     G: nx.DiGraph,
@@ -109,7 +119,8 @@ def extend_graph_from_access_history(
     the query_id for full audit traceability.
     """
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT
                 val.value:objectName::STRING AS source_table,
                 column_name,
@@ -118,22 +129,26 @@ def extend_graph_from_access_history(
             FROM snowflake.account_usage.access_history ah,
                  LATERAL FLATTEN(input => ah.direct_objects_accessed) val,
                  LATERAL FLATTEN(input => val.value:columns) col_val,
-                 LATERAL (SELECT col_val.value:columnName::VARCHAR AS column_name) col_name
+                 LATERAL (SELECT col_val.value:columnName::VARCHAR AS \
+column_name) col_name
             WHERE query_start_time > DATEADD('day', -%s, CURRENT_TIMESTAMP())
             LIMIT 10000
-        """, (lookback_days,))
+        """,
+            (lookback_days,),
+        )
         rows = cur.fetchall()
 
     for source_table, col_name, query_id, ts in rows:
         if not source_table:
             continue
         node_id = f"SNOWFLAKE://{source_table.lower()}"
-        col_id  = f"{node_id}/{col_name.lower()}"
+        col_id = f"{node_id}/{col_name.lower()}"
         if node_id not in G.nodes:
             G.add_node(node_id, node_type="table", name=source_table)
         if col_id not in G.nodes:
-            G.add_node(col_id, node_type="column", name=col_name,
-                       table=source_table)
+            G.add_node(
+                col_id, node_type="column", name=col_name, table=source_table
+            )
             G.add_edge(node_id, col_id, edge_type="has_column")
 
     return G
@@ -142,6 +157,7 @@ def extend_graph_from_access_history(
 # ============================================================
 # Graph traversal for impact analysis
 # ============================================================
+
 
 def find_downstream_impact(
     G: nx.DiGraph,
@@ -177,14 +193,18 @@ def find_downstream_impact(
                 "name": G.nodes[node].get("name", node),
             }
 
-    tables   = {k: v for k, v in affected.items() if v["node_type"] == "table"}
-    dashboards = {k: v for k, v in affected.items() if v["node_type"] == "dashboard"}
+    tables = {k: v for k, v in affected.items() if v["node_type"] == "table"}
+    dashboards = {
+        k: v for k, v in affected.items() if v["node_type"] == "dashboard"
+    }
 
     return {
-        "source":       table_fqn,
+        "source": table_fqn,
         "total_affected": len(affected),
         "tables_affected": len(tables),
-        "max_depth":    max(v["hops"] for v in affected.values()) if affected else 0,
+        "max_depth": max(v["hops"] for v in affected.values())
+        if affected
+        else 0,
         "affected_tables": tables,
         "affected_dashboards": dashboards,
     }
@@ -194,6 +214,7 @@ def find_downstream_impact(
 # Lineage claim verification (hallucination detection)
 # ============================================================
 
+
 def extract_lineage_claims(answer_text: str) -> list[tuple[str, str]]:
     """
     Extract lineage claims from LLM output using pattern matching.
@@ -201,10 +222,10 @@ def extract_lineage_claims(answer_text: str) -> list[tuple[str, str]]:
     Returns list of (source, target) pairs.
     """
     patterns = [
-        r'(\w+)\s+feeds\s+(?:into\s+)?(\w+)',
-        r'(\w+)\s+depends\s+on\s+(\w+)',
-        r'(\w+)\s+is\s+upstream\s+of\s+(\w+)',
-        r'(\w+)\s+→\s+(\w+)',
+        r"(\w+)\s+feeds\s+(?:into\s+)?(\w+)",
+        r"(\w+)\s+depends\s+on\s+(\w+)",
+        r"(\w+)\s+is\s+upstream\s+of\s+(\w+)",
+        r"(\w+)\s+→\s+(\w+)",
     ]
     claims = []
     for pattern in patterns:
@@ -230,44 +251,75 @@ def verify_lineage_claims(
         tgt_id = entity_alias_index.get(tgt_alias.lower())
 
         if not src_id or not tgt_id:
-            results["unverified"].append({
-                "claim": f"{src_alias} → {tgt_alias}",
-                "reason": "one or both entities not found in graph",
-            })
+            results["unverified"].append(
+                {
+                    "claim": f"{src_alias} → {tgt_alias}",
+                    "reason": "one or both entities not found in graph",
+                }
+            )
             continue
 
         if nx.has_path(G, src_id, tgt_id):
             path_len = nx.shortest_path_length(G, src_id, tgt_id)
-            results["verified"].append({
-                "claim": f"{src_alias} → {tgt_alias}",
-                "path_length": path_len,
-                "evidence": f"Graph path exists: {src_id} to {tgt_id} in {path_len} hop(s)",
-            })
+            results["verified"].append(
+                {
+                    "claim": f"{src_alias} → {tgt_alias}",
+                    "path_length": path_len,
+                    "evidence": (
+                        f"Graph path exists: {src_id} to {tgt_id} in "
+                        f"{path_len} hop(s)"
+                    ),
+                }
+            )
         else:
-            results["contradicted"].append({
-                "claim": f"{src_alias} → {tgt_alias}",
-                "reason": f"No path from {src_id} to {tgt_id} in the lineage graph",
-            })
+            results["contradicted"].append(
+                {
+                    "claim": f"{src_alias} → {tgt_alias}",
+                    "reason": (
+                        f"No path from {src_id} to {tgt_id} in the lineage "
+                        f"graph"
+                    ),
+                }
+            )
 
     hallucination_rate = (
         len(results["contradicted"]) / len(claims) if claims else 0.0
     )
     return {
         **results,
-        "total_claims":       len(claims),
+        "total_claims": len(claims),
         "hallucination_rate": hallucination_rate,
-        "passed":             hallucination_rate == 0.0 and len(results["unverified"]) == 0,
+        "passed": hallucination_rate == 0.0
+        and len(results["unverified"]) == 0,
     }
 
 
 if __name__ == "__main__":
     # Build a minimal demo graph
     G = nx.DiGraph()
-    G.add_node("dbt://opspu/stg_iot_events",   node_type="table", name="stg_iot_events")
-    G.add_node("dbt://opspu/fct_device_anomalies", node_type="table", name="fct_device_anomalies")
-    G.add_node("ops_anomaly_dashboard",         node_type="dashboard", name="ops_anomaly_dashboard")
-    G.add_edge("dbt://opspu/stg_iot_events",    "dbt://opspu/fct_device_anomalies", edge_type="dbt_dependency")
-    G.add_edge("dbt://opspu/fct_device_anomalies", "ops_anomaly_dashboard",          edge_type="consumes")
+    G.add_node(
+        "dbt://opspu/stg_iot_events", node_type="table", name="stg_iot_events"
+    )
+    G.add_node(
+        "dbt://opspu/fct_device_anomalies",
+        node_type="table",
+        name="fct_device_anomalies",
+    )
+    G.add_node(
+        "ops_anomaly_dashboard",
+        node_type="dashboard",
+        name="ops_anomaly_dashboard",
+    )
+    G.add_edge(
+        "dbt://opspu/stg_iot_events",
+        "dbt://opspu/fct_device_anomalies",
+        edge_type="dbt_dependency",
+    )
+    G.add_edge(
+        "dbt://opspu/fct_device_anomalies",
+        "ops_anomaly_dashboard",
+        edge_type="consumes",
+    )
 
     print(f"Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     impact = find_downstream_impact(G, "stg_iot_events")

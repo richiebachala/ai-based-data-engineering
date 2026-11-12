@@ -2,7 +2,8 @@
 # Section: 5.5 Prompt caching — Anthropic ephemeral cache
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -36,29 +37,36 @@ client = anthropic.Anthropic()
 # The schema preamble is the same for all SQL generation calls
 # against this platform. Cache it to save ~4,000 tokens per call.
 OPSPU_SCHEMA_PREAMBLE = """
-You are a senior Snowflake data engineer working with the OpsPulse data platform.
+You are a senior Snowflake data engineer working with the OpsPulse data \
+platform.
 
 AVAILABLE TABLES AND SCHEMAS:
 
 -- opspu_iot_telemetry: Raw IoT sensor data from all deployed devices
 device_id     VARCHAR  -- Unique device identifier. Joins to dim_devices.
-event_time    TIMESTAMP_NTZ  -- Event UTC timestamp. ±30s tolerance for device clock drift.
-event_type    VARCHAR  -- One of: heartbeat, anomaly, threshold_breach, config_update.
+event_time    TIMESTAMP_NTZ  -- Event UTC timestamp. ±30s tolerance for \
+device clock drift.
+event_type    VARCHAR  -- One of: heartbeat, anomaly, threshold_breach, \
+config_update.
 signal_value  FLOAT    -- Raw sensor reading. Units depend on device_class.
 region_code   VARCHAR  -- ISO 3166-1 alpha-2 region where device is deployed.
-is_anomaly    BOOLEAN  -- True when signal_value exceeds 2-sigma threshold for device class.
-ingested_at   TIMESTAMP_NTZ  -- When record entered the platform. Set by Snowpipe.
+is_anomaly    BOOLEAN  -- True when signal_value exceeds 2-sigma threshold \
+for device class.
+ingested_at   TIMESTAMP_NTZ  -- When record entered the platform. Set by \
+Snowpipe.
 
 -- fct_inventory_exposure: Inventory risk exposure by product and region
 product_id        VARCHAR   -- FK to dim_product_hierarchy.product_id
 region_code       VARCHAR   -- ISO 3166-1 alpha-2
 exposure_amount   NUMBER    -- Monetary exposure in USD
-snapshot_date     DATE      -- Daily snapshot; use MAX(snapshot_date) for current
+snapshot_date     DATE      -- Daily snapshot; use MAX(snapshot_date) for \
+current
 threshold_pct     FLOAT     -- Warning threshold as % of total exposure
 
 -- fct_active_customers: Active customer fact
 customer_id   VARCHAR       -- Surrogate key. Joins to dim_customers.
-active_since  TIMESTAMP_NTZ -- Earliest qualifying event in trailing 30-day window.
+active_since  TIMESTAMP_NTZ -- Earliest qualifying event in trailing 30-day \
+window.
 region_code   VARCHAR       -- ISO 3166-1 alpha-2
 
 SQL RULES:
@@ -71,12 +79,12 @@ SQL RULES:
 
 @dataclass
 class CachedSQLResult:
-    sql_output:     str
-    model:          str
-    input_tokens:   int
-    cached_tokens:  int
-    output_tokens:  int
-    cache_hit:      bool
+    sql_output: str
+    model: str
+    input_tokens: int
+    cached_tokens: int
+    output_tokens: int
+    cache_hit: bool
 
     @property
     def savings_pct(self) -> float:
@@ -104,31 +112,42 @@ def generate_sql_with_cached_schema(
         {
             "type": "text",
             "text": OPSPU_SCHEMA_PREAMBLE,
-            "cache_control": {"type": "ephemeral"}  # cache this stable prefix
+            "cache_control": {
+                "type": "ephemeral"
+            },  # cache this stable prefix
         },
         {
             "type": "text",
             "text": (
                 "Write read-only SELECT queries in Snowflake SQL dialect. "
-                "Reference only the tables listed above. No DML, DDL, or CALL."
-            )
-            # No cache_control here — short instruction, not worth a separate cache slot
-        }
+                "Reference only the tables listed above. No DML, DDL, or "
+                "CALL."
+            ),
+            # No cache_control here — short instruction, not worth a
+            # separate cache slot
+        },
     ]
     if extra_instructions:
-        system_blocks.append({
-            "type": "text",
-            "text": extra_instructions,
-        })
+        system_blocks.append(
+            {
+                "type": "text",
+                "text": extra_instructions,
+            }
+        )
 
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=1024,
         system=system_blocks,
-        messages=[{"role": "user", "content": (
-            f"Business question: {business_question}\n\n"
-            "Return JSON: {sql, explanation, confidence}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Business question: {business_question}\n\n"
+                    "Return JSON: {sql, explanation, confidence}"
+                ),
+            }
+        ],
     )
 
     usage = response.usage
@@ -151,11 +170,16 @@ if __name__ == "__main__":
         "Count anomalous IoT events in APAC for the last 24 hours",
     ]
 
-    print("Running 3 SQL generation calls (schema preamble cached after first call):\n")
+    print(
+        "Running 3 SQL generation calls (schema preamble cached after first "
+        "call):\n"
+    )
     for i, q in enumerate(questions, 1):
         result = generate_sql_with_cached_schema(q)
-        print(f"  Call {i}: cache_hit={result.cache_hit} "
-              f"| input={result.input_tokens} "
-              f"| cached={result.cached_tokens} "
-              f"| savings={result.savings_pct:.0f}%")
+        print(
+            f"  Call {i}: cache_hit={result.cache_hit} "
+            f"| input={result.input_tokens} "
+            f"| cached={result.cached_tokens} "
+            f"| savings={result.savings_pct:.0f}%"
+        )
     print("\nSubsequent calls to the same schema should show cache_hit=True.")

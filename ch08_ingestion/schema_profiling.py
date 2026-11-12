@@ -3,8 +3,9 @@ import re
 # Section: 8.1-8.2 Schema profiling and entity detection
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Dynamic SQL profiling and AI-powered entity detection.
@@ -30,63 +31,65 @@ client = anthropic.Anthropic()
 
 # --- Data models ---
 
+
 @dataclass
 class ColumnProfile:
-    column_name:     str
-    data_type:       str
-    null_pct:        float
+    column_name: str
+    data_type: str
+    null_pct: float
     approx_distinct: int
-    min_val:         Optional[str]
-    max_val:         Optional[str]
+    min_val: Optional[str]
+    max_val: Optional[str]
 
 
 @dataclass
 class ProfileAnomaly:
     column_name: str
-    anomaly_type: str   # "high_null_rate" | "no_distinct" | "new_column"
-    severity:     str   # "warning" | "blocking"
-    detail:       str
+    anomaly_type: str  # "high_null_rate" | "no_distinct" | "new_column"
+    severity: str  # "warning" | "blocking"
+    detail: str
 
 
 class ColumnRole(str, Enum):
-    IDENTIFIER  = "identifier"
-    MEASURE     = "measure"
-    DIMENSION   = "dimension"
-    FLAG        = "flag"
-    TIMESTAMP   = "timestamp"
-    FREE_TEXT   = "free_text"
+    IDENTIFIER = "identifier"
+    MEASURE = "measure"
+    DIMENSION = "dimension"
+    FLAG = "flag"
+    TIMESTAMP = "timestamp"
+    FREE_TEXT = "free_text"
     FOREIGN_KEY = "foreign_key"
-    UNKNOWN     = "unknown"
+    UNKNOWN = "unknown"
 
 
 class PIIClass(str, Enum):
-    NONE        = "none"
-    DIRECT      = "direct"        # name, email, SSN, phone
-    QUASI       = "quasi"         # DOB, ZIP, gender
-    INDIRECT    = "indirect"      # job title, device ID if linkable
-    CONFIRMED   = "confirmed"     # user-verified PII
+    NONE = "none"
+    DIRECT = "direct"  # name, email, SSN, phone
+    QUASI = "quasi"  # DOB, ZIP, gender
+    INDIRECT = "indirect"  # job title, device ID if linkable
+    CONFIRMED = "confirmed"  # user-verified PII
 
 
 @dataclass
 class ColumnEntityInfo:
-    column_name:    str
-    role:           ColumnRole
-    pii_class:      PIIClass = PIIClass.NONE
+    column_name: str
+    role: ColumnRole
+    pii_class: PIIClass = PIIClass.NONE
     likely_joins_to: Optional[str] = None
 
 
 @dataclass
 class TableEntityDetection:
-    entity_type:   str        # e.g. "device_calibration_event"
-    grain:         str        # e.g. "one row per calibration event per device"
-    data_domain:   str        # e.g. "IoT operations"
-    columns:       list[ColumnEntityInfo] = field(default_factory=list)
+    entity_type: str  # e.g. "device_calibration_event"
+    grain: str  # e.g. "one row per calibration event per device"
+    data_domain: str  # e.g. "IoT operations"
+    columns: list[ColumnEntityInfo] = field(default_factory=list)
     classification_confidence: float = 0.0
 
 
 # ============================================================
 # Dynamic profile query
 # ============================================================
+
 
 def profile_table(
     conn: snowflake.connector.connection.SnowflakeConnection,
@@ -104,11 +107,15 @@ def profile_table(
         dtype = col["data_type"]
         safe_name = '"' + name.replace('"', '""') + '"'
         select_exprs += [
-            f"ROUND(100.0 * COUNT_IF({safe_name} IS NULL) / COUNT(*), 2) AS null_pct_{name}",
+            f"ROUND(100.0 * COUNT_IF({safe_name} IS NULL) / COUNT(*), 2) AS "
+            f"null_pct_{name}",
             f"APPROX_COUNT_DISTINCT({safe_name}) AS distinct_{name}",
         ]
         # min/max for non-text columns
-        if any(t in dtype.upper() for t in ["INT", "FLOAT", "NUMBER", "DATE", "TIMESTAMP"]):
+        if any(
+            t in dtype.upper()
+            for t in ["INT", "FLOAT", "NUMBER", "DATE", "TIMESTAMP"]
+        ):
             select_exprs.append(f"MIN({safe_name})::VARCHAR AS min_{name}")
             select_exprs.append(f"MAX({safe_name})::VARCHAR AS max_{name}")
         else:
@@ -116,9 +123,14 @@ def profile_table(
             select_exprs.append(f"NULL AS max_{name}")
 
     # Validate table_fqn before interpolation to prevent SQL injection
-    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*){0,2}$', table_fqn):
+    if not re.match(
+        r"^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*){0,2}$", table_fqn
+    ):
         raise ValueError(f"Invalid table FQN: {table_fqn!r}")
-    sql = f"SELECT {', '.join(select_exprs)} FROM {table_fqn} SAMPLE ({sample_rows} ROWS)"
+    sql = (
+        f"SELECT {', '.join(select_exprs)} FROM {table_fqn} SAMPLE "
+        f"({sample_rows} ROWS)"
+    )
 
     with conn.cursor() as cur:
         cur.execute(sql)
@@ -128,14 +140,24 @@ def profile_table(
     profiles = []
     for col in columns:
         name = col["column_name"]
-        profiles.append(ColumnProfile(
-            column_name=name,
-            data_type=col["data_type"],
-            null_pct=float(row[desc[f"null_pct_{name.lower()}"]]) if row else 0.0,
-            approx_distinct=int(row[desc[f"distinct_{name.lower()}"]]) if row else 0,
-            min_val=str(row[desc[f"min_{name.lower()}"]]) if row else None,
-            max_val=str(row[desc[f"max_{name.lower()}"]]) if row else None,
-        ))
+        profiles.append(
+            ColumnProfile(
+                column_name=name,
+                data_type=col["data_type"],
+                null_pct=float(row[desc[f"null_pct_{name.lower()}"]])
+                if row
+                else 0.0,
+                approx_distinct=int(row[desc[f"distinct_{name.lower()}"]])
+                if row
+                else 0,
+                min_val=str(row[desc[f"min_{name.lower()}"]])
+                if row
+                else None,
+                max_val=str(row[desc[f"max_{name.lower()}"]])
+                if row
+                else None,
+            )
+        )
     return profiles
 
 
@@ -148,26 +170,38 @@ def detect_profile_anomalies(
     anomalies = []
     for p in profiles:
         if p.null_pct >= null_blocking_threshold:
-            anomalies.append(ProfileAnomaly(
-                column_name=p.column_name,
-                anomaly_type="high_null_rate",
-                severity="blocking",
-                detail=f"{p.null_pct:.1f}% null (threshold: {null_blocking_threshold*100:.0f}%)",
-            ))
+            anomalies.append(
+                ProfileAnomaly(
+                    column_name=p.column_name,
+                    anomaly_type="high_null_rate",
+                    severity="blocking",
+                    detail=(
+                        f"{p.null_pct:.1f}% null (threshold: "
+                        f"{null_blocking_threshold * 100:.0f}%)"
+                    ),
+                )
+            )
         elif p.null_pct >= null_warning_threshold:
-            anomalies.append(ProfileAnomaly(
-                column_name=p.column_name,
-                anomaly_type="high_null_rate",
-                severity="warning",
-                detail=f"{p.null_pct:.1f}% null",
-            ))
+            anomalies.append(
+                ProfileAnomaly(
+                    column_name=p.column_name,
+                    anomaly_type="high_null_rate",
+                    severity="warning",
+                    detail=f"{p.null_pct:.1f}% null",
+                )
+            )
         if p.approx_distinct == 0 and p.null_pct < 1.0:
-            anomalies.append(ProfileAnomaly(
-                column_name=p.column_name,
-                anomaly_type="no_distinct",
-                severity="warning",
-                detail="0 distinct values with non-null rows — possible constant column",
-            ))
+            anomalies.append(
+                ProfileAnomaly(
+                    column_name=p.column_name,
+                    anomaly_type="no_distinct",
+                    severity="warning",
+                    detail=(
+                        "0 distinct values with non-null rows — possible "
+                        "constant column"
+                    ),
+                )
+            )
     return anomalies
 
 
@@ -175,19 +209,20 @@ def detect_profile_anomalies(
 # AI entity detection
 # ============================================================
 
+
 class ColumnClassification(BaseModel):
-    column_name:    str
-    role:           str  # ColumnRole value
-    pii:            bool
-    pii_class:      str  # PIIClass value
+    column_name: str
+    role: str  # ColumnRole value
+    pii: bool
+    pii_class: str  # PIIClass value
     likely_joins_to: Optional[str] = None
 
 
 class TableClassificationOutput(BaseModel):
-    entity_type:           str
-    grain:                 str
-    data_domain:           str
-    columns:               list[ColumnClassification]
+    entity_type: str
+    grain: str
+    data_domain: str
+    columns: list[ColumnClassification]
     classification_confidence: float = Field(ge=0.0, le=1.0)
 
 
@@ -202,27 +237,39 @@ def detect_entities(
     """
     sample_str = ""
     if sample_rows:
-        sample_str = f"\nSample rows (3 rows):\n{json.dumps(sample_rows[:3], indent=2)}"
+        sample_str = (
+            f"\nSample rows (3 rows):\n"
+            f"{json.dumps(sample_rows[:3], indent=2)}"
+        )
 
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=800,
         system=(
-            "You are an enterprise data architect performing entity detection. "
-            "Analyze the table schema and sample rows to determine the entity type, "
+            "You are an enterprise data architect performing entity "
+            "detection. "
+            "Analyze the table schema and sample rows to determine the "
+            "entity type, "
             "grain, data domain, and classify each column."
         ),
-        tools=[{
-            "name": "classify_table",
-            "description": "Return the table entity classification.",
-            "input_schema": TableClassificationOutput.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "classify_table",
+                "description": "Return the table entity classification.",
+                "input_schema": TableClassificationOutput.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "classify_table"},
-        messages=[{"role": "user", "content": (
-            f"Table: {table_name}\n"
-            f"Columns: {json.dumps(columns, indent=2)}"
-            f"{sample_str}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Table: {table_name}\n"
+                    f"Columns: {json.dumps(columns, indent=2)}"
+                    f"{sample_str}"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     output = TableClassificationOutput(**tool_call.input)
@@ -234,8 +281,12 @@ def detect_entities(
         columns=[
             ColumnEntityInfo(
                 column_name=c.column_name,
-                role=ColumnRole(c.role) if c.role in ColumnRole._value2member_map_ else ColumnRole.UNKNOWN,
-                pii_class=PIIClass(c.pii_class) if c.pii_class in PIIClass._value2member_map_ else PIIClass.NONE,
+                role=ColumnRole(c.role)
+                if c.role in ColumnRole._value2member_map_
+                else ColumnRole.UNKNOWN,
+                pii_class=PIIClass(c.pii_class)
+                if c.pii_class in PIIClass._value2member_map_
+                else PIIClass.NONE,
                 likely_joins_to=c.likely_joins_to,
             )
             for c in output.columns
@@ -247,17 +298,21 @@ def detect_entities(
 if __name__ == "__main__":
     # Demo entity detection without a live connection
     columns = [
-        {"column_name": "device_id",        "data_type": "VARCHAR"},
-        {"column_name": "calibration_date",  "data_type": "DATE"},
-        {"column_name": "technician_id",     "data_type": "VARCHAR"},
-        {"column_name": "passed",            "data_type": "BOOLEAN"},
-        {"column_name": "offset_mm",         "data_type": "FLOAT"},
+        {"column_name": "device_id", "data_type": "VARCHAR"},
+        {"column_name": "calibration_date", "data_type": "DATE"},
+        {"column_name": "technician_id", "data_type": "VARCHAR"},
+        {"column_name": "passed", "data_type": "BOOLEAN"},
+        {"column_name": "offset_mm", "data_type": "FLOAT"},
     ]
     result = detect_entities("calibration_events", columns)
     print(f"Entity type: {result.entity_type}")
     print(f"Grain: {result.grain}")
     print(f"Confidence: {result.classification_confidence}")
     for col in result.columns:
-        pii_str = f" [PII: {col.pii_class.value}]" if col.pii_class != PIIClass.NONE else ""
+        pii_str = (
+            f" [PII: {col.pii_class.value}]"
+            if col.pii_class != PIIClass.NONE
+            else ""
+        )
         join_str = f" → {col.likely_joins_to}" if col.likely_joins_to else ""
         print(f"  {col.column_name}: {col.role.value}{pii_str}{join_str}")

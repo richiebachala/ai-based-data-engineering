@@ -2,7 +2,8 @@
 # Section: 4.3 Repair loop — recover from insufficient_context fallback
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -30,10 +31,10 @@ client = anthropic.Anthropic()
 
 @dataclass
 class RepairResult:
-    output:         str
-    attempts:       int
-    success:        bool
-    error:          Optional[str] = None
+    output: str
+    attempts: int
+    success: bool
+    error: Optional[str] = None
     missing_context: Optional[str] = None
 
 
@@ -81,8 +82,10 @@ def prompt_repair_loop(
         user_message:    PTCF user message (task + context + format)
         context_fetcher: Callable that takes a "missing" description string
                          and returns the additional context as a string.
-                         This is where you'd call the catalog, lineage API, etc.
-        max_retries:     Maximum number of repair attempts after initial failure
+                         This is where you'd call the catalog, lineage API,
+                         etc.
+        max_retries:     Maximum number of repair attempts after
+                         initial failure
         model:           Model to use
 
     Returns:
@@ -90,8 +93,12 @@ def prompt_repair_loop(
     """
     current_user_message = user_message
 
-    for attempt in range(1, max_retries + 2):  # +2: 1 initial + max_retries repairs
-        output = attempt_generation(system_message, current_user_message, model)
+    for attempt in range(
+        1, max_retries + 2
+    ):  # +2: 1 initial + max_retries repairs
+        output = attempt_generation(
+            system_message, current_user_message, model
+        )
 
         is_insufficient, missing = _is_insufficient_context(output)
 
@@ -117,15 +124,19 @@ def prompt_repair_loop(
         additional_context = context_fetcher(missing)
         current_user_message = (
             f"{user_message}\n\n"
-            f"--- Additional context (fetched to address missing: {missing}) ---\n"
+            f"--- Additional context (fetched to address missing: {missing}) "
+            f"---\n"
             f"{additional_context}"
         )
 
     # Should not reach here
-    return RepairResult(output="", attempts=max_retries, success=False, error="unknown")
+    return RepairResult(
+        output="", attempts=max_retries, success=False, error="unknown"
+    )
 
 
 # --- Example context fetcher for OpsPulse ---
+
 
 def opspu_context_fetcher(missing: str) -> str:
     """
@@ -134,9 +145,17 @@ def opspu_context_fetcher(missing: str) -> str:
     """
     # STUB: replace with real catalog / lineage API calls
     context_map = {
-        "schema": "Table: FCT_ACTIVE_CUSTOMERS, Columns: customer_id, active_since, region_code",
-        "definition": "active_customer: at least one qualifying event in trailing 30 days",
-        "join condition": "FCT_ACTIVE_CUSTOMERS.customer_id = DIM_CUSTOMERS.customer_id",
+        "schema": (
+            "Table: FCT_ACTIVE_CUSTOMERS, Columns: customer_id, "
+            "active_since, region_code"
+        ),
+        "definition": (
+            "active_customer: at least one qualifying event in trailing 30 "
+            "days"
+        ),
+        "join condition": (
+            "FCT_ACTIVE_CUSTOMERS.customer_id = DIM_CUSTOMERS.customer_id"
+        ),
     }
     for key, value in context_map.items():
         if key.lower() in missing.lower():
@@ -146,12 +165,14 @@ def opspu_context_fetcher(missing: str) -> str:
 
 if __name__ == "__main__":
     system = (
-        "You are a senior Snowflake data engineer. Write read-only SELECT queries. "
-        'If you cannot answer with the provided context, return: '
+        "You are a senior Snowflake data engineer. Write read-only SELECT "
+        "queries. "
+        "If you cannot answer with the provided context, return: "
         '{"error": "insufficient_context", "missing": "<what is needed>"}'
     )
     user = (
-        "Generate SQL to count active customers in EMEA for the last 30 days.\n"
+        "Generate SQL to count active customers in EMEA for the last 30 "
+        "days.\n"
         "Available tables: [NONE PROVIDED — intentionally incomplete]"
     )
 

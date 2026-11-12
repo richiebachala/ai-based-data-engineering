@@ -2,11 +2,13 @@
 # Section: 7.3 Analytics server (safe SQL execution with guardrails)
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
-MCP analytics server: SQL execution with safety guardrails and injection detection.
+MCP analytics server: SQL execution with safety guardrails and injection
+detection.
 
 Safety layers:
   1. SQL allowlist: only SELECT; blocks DML, DDL, multi-statement
@@ -35,23 +37,26 @@ mcp = MCPServer(
         "This server executes read-only SELECT queries. "
         "Always retrieve the table schema from the catalog server before "
         "writing SQL. Do not guess column names. "
-        "Queries are limited to 1,000 rows; use aggregation for summary statistics."
+        "Queries are limited to 1,000 rows; use aggregation for summary "
+        "statistics."
     ),
 )
 
 # Compiled injection pattern detector
 INJECTION_PATTERNS = re.compile(
-    r'(ignore\s+(?:previous|prior|all)\s+instructions?'
-    r'|disregard\s+(?:your|the)\s+(?:previous|prior)\s+(?:instructions?|context)'
-    r'|you\s+are\s+now\s+(?:a|an|acting\s+as)'
-    r'|act\s+as\s+(?:a|an)\s+(?:different|new)\s+(?:ai|assistant|model)'
-    r'|export\s+(?:all|the)\s+(?:data|contents|rows))'
-    r'|--\s*override|/\*.*override.*\*/',
+    r"(ignore\s+(?:previous|prior|all)\s+instructions?"
+    r"|disregard\s+(?:your|the)\s+(?:previous|prior)\s+"
+    r"(?:instructions?|context)"
+    r"|you\s+are\s+now\s+(?:a|an|acting\s+as)"
+    r"|act\s+as\s+(?:a|an)\s+(?:different|new)\s+(?:ai|assistant|model)"
+    r"|export\s+(?:all|the)\s+(?:data|contents|rows))"
+    r"|--\s*override|/\*.*override.*\*/",
     re.IGNORECASE | re.DOTALL,
 )
 
 BLOCKED_KEYWORDS = re.compile(
-    r'\b(DELETE|INSERT|UPDATE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL|EXECUTE|GRANT|REVOKE)\b',
+    r"\b(DELETE|INSERT|UPDATE|MERGE|CREATE|ALTER|DROP|TRUNCATE|CALL"
+    r"|EXECUTE|GRANT|REVOKE)\b",
     re.IGNORECASE,
 )
 
@@ -87,8 +92,8 @@ def _validate_sql(sql: str) -> tuple[bool, str]:
     sql_stripped = sql.strip()
 
     # Must start with SELECT (after stripping leading whitespace/comments)
-    sql_no_comments = re.sub(r'/\*.*?\*/', '', sql_stripped, flags=re.DOTALL)
-    sql_no_comments = re.sub(r'--[^\n]*', '', sql_no_comments).strip()
+    sql_no_comments = re.sub(r"/\*.*?\*/", "", sql_stripped, flags=re.DOTALL)
+    sql_no_comments = re.sub(r"--[^\n]*", "", sql_no_comments).strip()
 
     if not sql_no_comments.upper().startswith("SELECT"):
         return False, "Query must be a SELECT statement."
@@ -96,7 +101,10 @@ def _validate_sql(sql: str) -> tuple[bool, str]:
     # No DML keywords anywhere
     match = BLOCKED_KEYWORDS.search(sql)
     if match:
-        return False, f"Blocked keyword: {match.group(0)}. Only SELECT is allowed."
+        return (
+            False,
+            f"Blocked keyword: {match.group(0)}. Only SELECT is allowed.",
+        )
 
     # No semicolons (prevents multi-statement injection)
     if ";" in sql:
@@ -109,13 +117,13 @@ def _log_query_audit(query_id: str, sql: str, row_count: int) -> str:
     """Log read query to the audit trail. Returns audit event ID."""
     event_id = str(uuid.uuid4())
     event = {
-        "event_id":   event_id,
+        "event_id": event_id,
         "event_type": "tool_invocation",
-        "tool":       "run_snowflake_select",
-        "timestamp":  datetime.now(timezone.utc).isoformat(),
-        "query_id":   query_id,
-        "sql_hash":   _hash_sql(sql),
-        "row_count":  row_count,
+        "tool": "run_snowflake_select",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "query_id": query_id,
+        "sql_hash": _hash_sql(sql),
+        "row_count": row_count,
     }
     # In production: write to Snowflake audit table
     with open("mcp_audit.jsonl", "a") as f:
@@ -149,19 +157,19 @@ async def run_snowflake_select(
     is_injection, pattern = _scan_for_injection(sql)
     if is_injection:
         return {
-            "error":      "INJECTION_DETECTED",
-            "retryable":  False,
-            "message":    "Query contains injection pattern and was blocked.",
-            "pattern":    pattern[:100],
+            "error": "INJECTION_DETECTED",
+            "retryable": False,
+            "message": "Query contains injection pattern and was blocked.",
+            "pattern": pattern[:100],
         }
 
     # Layer 2: SQL validation
     is_valid, validation_error = _validate_sql(sql)
     if not is_valid:
         return {
-            "error":     "VALIDATION",
+            "error": "VALIDATION",
             "retryable": False,
-            "message":   validation_error,
+            "message": validation_error,
         }
 
     conn = _get_read_connection()
@@ -170,27 +178,28 @@ async def run_snowflake_select(
             # Apply row cap via LIMIT injection
             limited_sql = f"SELECT * FROM ({sql}) __q LIMIT {max_rows}"
             cur.execute(limited_sql)
-            columns  = [d[0] for d in cur.description]
-            rows     = cur.fetchall()
+            columns = [d[0] for d in cur.description]
+            rows = cur.fetchall()
             query_id = cur.sfqid
 
         audit_id = _log_query_audit(query_id, sql, len(rows))
 
         return {
-            "columns":    columns,
-            "rows":       [list(r) for r in rows],
-            "row_count":  len(rows),
-            "query_id":   query_id,
-            "audit_id":   audit_id,
-            "capped":     len(rows) == max_rows,
+            "columns": columns,
+            "rows": [list(r) for r in rows],
+            "row_count": len(rows),
+            "query_id": query_id,
+            "audit_id": audit_id,
+            "capped": len(rows) == max_rows,
         }
 
     except Exception as e:
         error_str = str(e)
         return {
-            "error":     "RUNTIME",
-            "retryable": "timeout" in error_str.lower() or "network" in error_str.lower(),
-            "message":   error_str[:500],
+            "error": "RUNTIME",
+            "retryable": "timeout" in error_str.lower()
+            or "network" in error_str.lower(),
+            "message": error_str[:500],
         }
 
 

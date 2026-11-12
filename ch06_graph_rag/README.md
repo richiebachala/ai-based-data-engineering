@@ -37,8 +37,10 @@ python knowledge_graph_networkx.py
 python neo4j_export.py
 
 # GraphRAG indexing
-pip install -r ../requirements-graphrag.txt   # separate venv; see top-level README
-graphrag init --root ./opspu_graphrag --model gpt-6.1-terra --embedding text-embedding-3-small
+# separate venv; see top-level README
+pip install -r ../requirements-graphrag.txt
+graphrag init --root ./opspu_graphrag --model gpt-6.1-terra \
+    --embedding text-embedding-3-small
 # Add dbt descriptions, runbooks, incident post-mortems to opspu_graphrag/input/
 graphrag index --root ./opspu_graphrag
 ```

@@ -2,7 +2,8 @@
 # Section: 3.1 Five composable workflow patterns — Routing
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -27,18 +28,18 @@ client = anthropic.Anthropic()
 
 
 class AnomalyType(str, Enum):
-    VOLUME_DROP      = "volume_drop"
-    SCHEMA_CHANGE    = "schema_change"
+    VOLUME_DROP = "volume_drop"
+    SCHEMA_CHANGE = "schema_change"
     FRESHNESS_BREACH = "freshness_breach"
-    QUALITY_FAILURE  = "quality_failure"
-    LINEAGE_BREAK    = "lineage_break"
-    UNKNOWN          = "unknown"
+    QUALITY_FAILURE = "quality_failure"
+    LINEAGE_BREAK = "lineage_break"
+    UNKNOWN = "unknown"
 
 
 class TriageClassification(BaseModel):
-    anomaly_type:      AnomalyType
-    confidence:        float = Field(ge=0.0, le=1.0)
-    primary_signal:    str
+    anomaly_type: AnomalyType
+    confidence: float = Field(ge=0.0, le=1.0)
+    primary_signal: str
     recommended_action: str
 
 
@@ -59,25 +60,34 @@ def classify_alert(alert_payload: dict) -> TriageClassification:
         model="claude-haiku-4-5",
         max_tokens=300,
         system=CLASSIFIER_SYSTEM,
-        tools=[{
-            "name": "classify",
-            "description": "Classify the anomaly type.",
-            "input_schema": TriageClassification.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "classify",
+                "description": "Classify the anomaly type.",
+                "input_schema": TriageClassification.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "classify"},
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Alert payload: {json.dumps(alert_payload)}\n\n"
-                "Classification rules:\n"
-                "- volume_drop: row count or record volume fell below threshold\n"
-                "- schema_change: column added, removed, renamed, or type changed\n"
-                "- freshness_breach: data not updated within the expected window\n"
-                "- quality_failure: null rate, uniqueness, or referential integrity breach\n"
-                "- lineage_break: upstream table or model failed to produce output\n"
-                "- unknown: insufficient data to classify confidently"
-            )
-        }]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Alert payload: {json.dumps(alert_payload)}\n\n"
+                    "Classification rules:\n"
+                    "- volume_drop: row count or record volume fell below "
+                    "threshold\n"
+                    "- schema_change: column added, removed, renamed, or "
+                    "type changed\n"
+                    "- freshness_breach: data not updated within the "
+                    "expected window\n"
+                    "- quality_failure: null rate, uniqueness, or "
+                    "referential integrity breach\n"
+                    "- lineage_break: upstream table or model failed to "
+                    "produce output\n"
+                    "- unknown: insufficient data to classify confidently"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     return TriageClassification(**tool_call.input)
@@ -85,78 +95,114 @@ def classify_alert(alert_payload: dict) -> TriageClassification:
 
 # --- Specialist handlers (one per anomaly type) ---
 
-def handle_volume_drop(alert: dict, classification: TriageClassification) -> dict:
+
+def handle_volume_drop(
+    alert: dict, classification: TriageClassification
+) -> dict:
     """Specialist: investigate row count drops."""
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=600,
         system=(
-            "You are a data reliability engineer investigating row count drops. "
-            "Identify the most likely root cause and provide specific remediation steps "
+            "You are a data reliability engineer investigating row count "
+            "drops. "
+            "Identify the most likely root cause and provide specific "
+            "remediation steps "
             "for a Snowflake/Airflow stack."
         ),
-        messages=[{"role": "user", "content": (
-            f"Alert: {json.dumps(alert)}\n"
-            f"Classification: {classification.model_dump_json()}\n\n"
-            "Provide: root cause hypothesis, verification query, remediation steps."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Alert: {json.dumps(alert)}\n"
+                    f"Classification: {classification.model_dump_json()}\n\n"
+                    "Provide: root cause hypothesis, verification query, "
+                    "remediation steps."
+                ),
+            }
+        ],
     )
     return {"handler": "volume_drop", "analysis": response.content[0].text}
 
 
-def handle_schema_change(alert: dict, classification: TriageClassification) -> dict:
+def handle_schema_change(
+    alert: dict, classification: TriageClassification
+) -> dict:
     """Specialist: investigate schema changes."""
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=600,
         system=(
-            "You are a data reliability engineer investigating schema changes. "
-            "Identify which column changed, which downstream consumers are affected, "
+            "You are a data reliability engineer investigating schema "
+            "changes. "
+            "Identify which column changed, which downstream consumers are "
+            "affected, "
             "and what remediation is needed."
         ),
-        messages=[{"role": "user", "content": (
-            f"Alert: {json.dumps(alert)}\n\n"
-            "Provide: changed column, impact assessment, migration path."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Alert: {json.dumps(alert)}\n\n"
+                    "Provide: changed column, impact assessment, migration "
+                    "path."
+                ),
+            }
+        ],
     )
     return {"handler": "schema_change", "analysis": response.content[0].text}
 
 
-def handle_quality_failure(alert: dict, classification: TriageClassification) -> dict:
+def handle_quality_failure(
+    alert: dict, classification: TriageClassification
+) -> dict:
     """Specialist: investigate data quality failures."""
     response = client.messages.create(
         model="claude-sonnet-5",
         max_tokens=600,
         system=(
-            "You are a data reliability engineer investigating data quality failures. "
-            "Analyze null rate, uniqueness, or referential integrity issues and "
+            "You are a data reliability engineer investigating data quality "
+            "failures. "
+            "Analyze null rate, uniqueness, or referential integrity issues "
+            "and "
             "recommend remediation."
         ),
-        messages=[{"role": "user", "content": (
-            f"Alert: {json.dumps(alert)}\n\n"
-            "Provide: quality dimension failing, root cause, fix."
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Alert: {json.dumps(alert)}\n\n"
+                    "Provide: quality dimension failing, root cause, fix."
+                ),
+            }
+        ],
     )
-    return {"handler": "quality_failure", "analysis": response.content[0].text}
+    return {
+        "handler": "quality_failure",
+        "analysis": response.content[0].text,
+    }
 
 
 def handle_unknown(alert: dict, classification: TriageClassification) -> dict:
     """Fallback handler: low-confidence classification → escalate."""
     return {
         "handler": "escalation",
-        "analysis": "Confidence below threshold. Escalated to on-call engineer.",
+        "analysis": (
+            "Confidence below threshold. Escalated to on-call engineer."
+        ),
         "alert": alert,
         "classification": classification.model_dump(),
     }
 
 
 ROUTE_MAP = {
-    AnomalyType.VOLUME_DROP:      handle_volume_drop,
-    AnomalyType.SCHEMA_CHANGE:    handle_schema_change,
-    AnomalyType.QUALITY_FAILURE:  handle_quality_failure,
-    AnomalyType.FRESHNESS_BREACH: handle_unknown,   # STUB: add freshness handler
-    AnomalyType.LINEAGE_BREAK:    handle_unknown,   # STUB: add lineage handler
-    AnomalyType.UNKNOWN:          handle_unknown,
+    AnomalyType.VOLUME_DROP: handle_volume_drop,
+    AnomalyType.SCHEMA_CHANGE: handle_schema_change,
+    AnomalyType.QUALITY_FAILURE: handle_quality_failure,
+    # STUB: add freshness handler
+    AnomalyType.FRESHNESS_BREACH: handle_unknown,
+    AnomalyType.LINEAGE_BREAK: handle_unknown,  # STUB: add lineage handler
+    AnomalyType.UNKNOWN: handle_unknown,
 }
 
 

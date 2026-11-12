@@ -2,8 +2,9 @@
 -- Section: 12.2 Snowflake masking policies and row access policies
 -- Book: AI-Based Data Engineering (Packt)
 --
--- NOTE: Code snippets marked with ... are illustrative stubs from the book text.
--- Complete implementations are provided where the full code is shown.
+-- NOTE: Code snippets marked with ... are illustrative stubs from
+-- the book text. Complete implementations are provided where the
+-- full code is shown.
 
 
 -- ============================================================
@@ -29,8 +30,10 @@ AS (email_value VARCHAR) RETURNS VARCHAR ->
 CREATE OR REPLACE MASKING POLICY mask_device_id
 AS (device_id VARCHAR) RETURNS VARCHAR ->
   CASE
-    WHEN CURRENT_ROLE() IN ('DATA_STEWARD_ROLE', 'SYSADMIN', 'IOT_ENGINEER') THEN device_id
-    ELSE SHA2(CONCAT(device_id, 'opspu_salt_2025'), 256)  -- consistent pseudonymization
+    WHEN CURRENT_ROLE() IN ('DATA_STEWARD_ROLE', 'SYSADMIN', 'IOT_ENGINEER')
+      THEN device_id
+    -- consistent pseudonymization
+    ELSE SHA2(CONCAT(device_id, 'opspu_salt_2025'), 256)
   END;
 
 
@@ -93,11 +96,12 @@ AS (stewardship_flag VARCHAR) RETURNS BOOLEAN ->
     WHEN stewardship_flag = 'true' THEN FALSE
     ELSE TRUE
   END;
--- NOTE: Snowflake row access policy bodies do NOT expose a context function
--- that returns the name of the table being scanned (there is no CURRENT_TABLE()),
--- so a policy cannot look its own object tag up at evaluation time. The supported
--- patterns are: (1) pass the governing value as the column argument shown above, or
--- (2) join a centralized mapping table in the same database as the protected table.
+-- NOTE: Snowflake row access policy bodies do NOT expose a context
+-- function that returns the name of the table being scanned (there is
+-- no CURRENT_TABLE()), so a policy cannot look its own object tag up at
+-- evaluation time. The supported patterns are: (1) pass the governing
+-- value as the column argument shown above, or (2) join a centralized
+-- mapping table in the same database as the protected table.
 -- Populate stewardship_flag from the object tag via a scheduled task or the
 -- ingestion pipeline (Chapter 8).
 -- Attach this policy to any table that may require stewardship review:
@@ -113,12 +117,14 @@ CREATE OR REPLACE TABLE data_governance.stewardship_queue (
     proposal_id           VARCHAR        NOT NULL,
     table_fqn             VARCHAR        NOT NULL,
     proposed_at           TIMESTAMP_TZ   NOT NULL DEFAULT CURRENT_TIMESTAMP(),
-    ai_classification     VARIANT        NOT NULL,   -- EnterpriseTableClassification JSON
+    -- EnterpriseTableClassification JSON
+    ai_classification     VARIANT        NOT NULL,
     trigger_reason        VARCHAR        NOT NULL,
     dag_run_id            VARCHAR,
     assigned_steward      VARCHAR,
     status                VARCHAR        NOT NULL DEFAULT 'pending',
-    -- 'pending' | 'in_review' | 'approved' | 'modified' | 'rejected' | 'deferred'
+    -- 'pending' | 'in_review' | 'approved' | 'modified' |
+    -- 'rejected' | 'deferred'
     decision              VARCHAR,
     final_classification  VARIANT,
     reviewer              VARCHAR,

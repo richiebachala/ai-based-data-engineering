@@ -29,7 +29,8 @@
 # Trigger the example DAG
 airflow dags trigger opspu_approval_gate_example
 
-# Approve the action (in CLI or via the Snowflake CALL pattern in idempotent_ingestion.sql)
+# Approve the action (in CLI or via the Snowflake
+# CALL pattern in idempotent_ingestion.sql)
 airflow variables set approval_OPSPU_MARTS_FCT_ACTIVE_CUSTOMERS approved
 
 # The DAG resumes and executes_on_approval runs with decision='approved'

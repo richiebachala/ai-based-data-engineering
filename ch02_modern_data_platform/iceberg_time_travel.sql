@@ -1,20 +1,26 @@
 -- Chapter 2: The Modern Stack — Data + AI + Control Plane
--- Section: 2.2 Open formats and interoperability: Iceberg, Horizon Catalog, and Unity Catalog
+-- Section: 2.2 Open formats and interoperability: Iceberg, Horizon Catalog,
+-- and Unity Catalog
 -- Book: AI-Based Data Engineering (Packt)
 --
--- NOTE: Code snippets marked with ... are illustrative stubs from the book text.
--- Complete implementations are provided where the full code is shown.
+-- NOTE: Code snippets marked with ... are illustrative stubs from the book
+-- text. Complete implementations are provided where the full code is shown.
 
 -- ============================================================
 -- 1. Snowflake-native Iceberg table governed by Horizon Catalog
 --    Standard for tables consumed only through Snowflake
 -- ============================================================
 CREATE OR REPLACE ICEBERG TABLE opspu_fct_calibration (
-    device_id       VARCHAR         COMMENT 'Unique device identifier. Joins to dim_devices.',
-    event_time      TIMESTAMP_NTZ   COMMENT 'Event timestamp in UTC. ±30s tolerance due to device clock drift.',
-    signal_value    FLOAT           COMMENT 'Raw sensor reading. Units depend on device_class.',
-    is_anomaly      BOOLEAN         COMMENT 'True if signal_value exceeds 2-sigma threshold for device class.',
-    ingested_at     TIMESTAMP_NTZ   COMMENT 'Timestamp when record entered the platform. Set by Snowpipe.'
+    device_id       VARCHAR
+        COMMENT 'Unique device identifier. Joins to dim_devices.',
+    event_time      TIMESTAMP_NTZ
+        COMMENT 'Event timestamp in UTC. ±30s tolerance due to device clock drift.',
+    signal_value    FLOAT
+        COMMENT 'Raw sensor reading. Units depend on device_class.',
+    is_anomaly      BOOLEAN
+        COMMENT 'True if signal_value exceeds 2-sigma threshold for device class.',
+    ingested_at     TIMESTAMP_NTZ
+        COMMENT 'Timestamp when record entered the platform. Set by Snowpipe.'
 )
     EXTERNAL_VOLUME = 'opspu_s3_vol'
     BASE_LOCATION   = 'calibration/'
@@ -26,13 +32,20 @@ CREATE OR REPLACE ICEBERG TABLE opspu_fct_calibration (
 --    (Apache Polaris) — readable by Databricks, Spark, Trino
 -- ============================================================
 CREATE OR REPLACE ICEBERG TABLE opspu_iot_telemetry (
-    device_id       VARCHAR         COMMENT 'Unique device identifier. Joins to dim_devices.',
-    event_time      TIMESTAMP_NTZ   COMMENT 'Event timestamp in UTC. ±30s tolerance due to device clock drift.',
-    event_type      VARCHAR         COMMENT 'One of: heartbeat, anomaly, threshold_breach, config_update.',
-    signal_value    FLOAT           COMMENT 'Raw sensor reading. Units depend on device_class.',
-    region_code     VARCHAR         COMMENT 'ISO 3166-1 alpha-2 region where device is deployed.',
-    is_anomaly      BOOLEAN         COMMENT 'True if signal_value exceeds 2-sigma threshold for device class.',
-    ingested_at     TIMESTAMP_NTZ   COMMENT 'Timestamp when record entered the platform. Set by Snowpipe.'
+    device_id       VARCHAR
+        COMMENT 'Unique device identifier. Joins to dim_devices.',
+    event_time      TIMESTAMP_NTZ
+        COMMENT 'Event timestamp in UTC. ±30s tolerance due to device clock drift.',
+    event_type      VARCHAR
+        COMMENT 'One of: heartbeat, anomaly, threshold_breach, config_update.',
+    signal_value    FLOAT
+        COMMENT 'Raw sensor reading. Units depend on device_class.',
+    region_code     VARCHAR
+        COMMENT 'ISO 3166-1 alpha-2 region where device is deployed.',
+    is_anomaly      BOOLEAN
+        COMMENT 'True if signal_value exceeds 2-sigma threshold for device class.',
+    ingested_at     TIMESTAMP_NTZ
+        COMMENT 'Timestamp when record entered the platform. Set by Snowpipe.'
 )
     CATALOG         = 'polaris_prod'      -- Open Catalog integration name
     EXTERNAL_VOLUME = 'opspu_s3_vol'

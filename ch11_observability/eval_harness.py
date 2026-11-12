@@ -2,24 +2,28 @@
 # Section: 11.1-11.4 Eval harness, tracing, drift detection, cost governance
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 Eval harness and observability for production AI pipelines.
 
 Two layers:
-  Offline evals: run in CI against golden datasets; block deployment on score drops
+  Offline evals: run in CI against golden datasets; block deployment on
+                 score drops
   Online monitoring: track score distributions in production; alert on drift
 
 Eval frameworks:
   - RAGAs:      retrieval quality (faithfulness, precision, recall, relevancy)
   - DeepEval:   structured output quality (custom GEval criteria)
-  - PromptFoo:  regression suites in CI (see ch04_structured_prompting/promptfoo/)
+  - PromptFoo:  regression suites in CI
+                (see ch04_structured_prompting/promptfoo/)
   - Braintrust: score history across model versions
 
 Bug fixes applied:
-  C11-1: _send_budget_alert() and _utc_now_iso() are defined (not just referenced)
+  C11-1: _send_budget_alert() and _utc_now_iso() are defined
+         (not just referenced)
 """
 
 import anthropic
@@ -36,6 +40,7 @@ client = anthropic.Anthropic()
 # ============================================================
 # Bug fix C11-1: define helper stubs
 # ============================================================
+
 
 def _utc_now_iso() -> str:
     """Return the current UTC timestamp as an ISO 8601 string."""
@@ -55,51 +60,54 @@ def _send_budget_alert(message: str) -> None:
 # Eval data models
 # ============================================================
 
+
 class EvalDimension(str, Enum):
-    FAITHFULNESS   = "faithfulness"    # answer grounded in context
-    PRECISION      = "precision"       # context is relevant
-    RECALL         = "recall"          # relevant context retrieved
-    RELEVANCY      = "relevancy"       # answer relevant to question
-    CORRECTNESS    = "correctness"     # answer matches ground truth
-    COMPLETENESS   = "completeness"    # all required fields present
+    FAITHFULNESS = "faithfulness"  # answer grounded in context
+    PRECISION = "precision"  # context is relevant
+    RECALL = "recall"  # relevant context retrieved
+    RELEVANCY = "relevancy"  # answer relevant to question
+    CORRECTNESS = "correctness"  # answer matches ground truth
+    COMPLETENESS = "completeness"  # all required fields present
 
 
 @dataclass
 class EvalCase:
     """One evaluation test case."""
-    case_id:        str
-    question:       str
+
+    case_id: str
+    question: str
     expected_answer: Optional[str]
-    context:        str
-    metadata:       dict = field(default_factory=dict)
+    context: str
+    metadata: dict = field(default_factory=dict)
 
 
 @dataclass
 class EvalResult:
-    case_id:     str
-    overall:     float
-    dimensions:  dict[str, float]
-    passed:      bool
-    notes:       str = ""
+    case_id: str
+    overall: float
+    dimensions: dict[str, float]
+    passed: bool
+    notes: str = ""
 
 
 # ============================================================
 # LLM-as-judge evaluator
 # ============================================================
 
+
 class JudgeScores(BaseModel):
-    faithfulness:  float = Field(ge=0.0, le=1.0)
-    relevancy:     float = Field(ge=0.0, le=1.0)
-    correctness:   float = Field(ge=0.0, le=1.0, default=0.5)
-    notes:         str   = ""
+    faithfulness: float = Field(ge=0.0, le=1.0)
+    relevancy: float = Field(ge=0.0, le=1.0)
+    correctness: float = Field(ge=0.0, le=1.0, default=0.5)
+    notes: str = ""
 
 
 def llm_judge_eval(
-    question:       str,
-    answer:         str,
-    context:        str,
+    question: str,
+    answer: str,
+    context: str,
     expected_answer: Optional[str] = None,
-    pass_threshold:  float = 0.75,
+    pass_threshold: float = 0.75,
 ) -> EvalResult:
     """
     LLM-as-judge evaluation. Used for semantic correctness and grounding
@@ -114,31 +122,40 @@ def llm_judge_eval(
         max_tokens=400,
         system=(
             "You are an AI output evaluator. Score on:\n"
-            "faithfulness: is every claim in the answer supported by the context?\n"
+            "faithfulness: is every claim in the answer supported by the "
+            "context?\n"
             "relevancy: does the answer address the question?\n"
-            "correctness: does the answer match the expected answer (if provided)?\n"
+            "correctness: does the answer match the expected answer (if "
+            "provided)?\n"
             "Scores 0.0-1.0. Be strict on faithfulness."
         ),
-        tools=[{
-            "name": "score",
-            "description": "Return evaluation scores.",
-            "input_schema": JudgeScores.model_json_schema(),
-        }],
+        tools=[
+            {
+                "name": "score",
+                "description": "Return evaluation scores.",
+                "input_schema": JudgeScores.model_json_schema(),
+            }
+        ],
         tool_choice={"type": "tool", "name": "score"},
-        messages=[{"role": "user", "content": (
-            f"Question: {question}\n\n"
-            f"Context:\n{context[:1000]}\n\n"
-            f"Answer to evaluate:\n{answer[:500]}"
-            f"{expected_block}"
-        )}]
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Question: {question}\n\n"
+                    f"Context:\n{context[:1000]}\n\n"
+                    f"Answer to evaluate:\n{answer[:500]}"
+                    f"{expected_block}"
+                ),
+            }
+        ],
     )
     tool_call = next(b for b in response.content if b.type == "tool_use")
     scores = JudgeScores(**tool_call.input)
 
     dimensions = {
-        "faithfulness":  scores.faithfulness,
-        "relevancy":     scores.relevancy,
-        "correctness":   scores.correctness,
+        "faithfulness": scores.faithfulness,
+        "relevancy": scores.relevancy,
+        "correctness": scores.correctness,
     }
     overall = sum(dimensions.values()) / len(dimensions)
 
@@ -146,7 +163,8 @@ def llm_judge_eval(
         case_id="llm_judge",
         overall=overall,
         dimensions=dimensions,
-        passed=min(dimensions.values()) >= pass_threshold and overall >= pass_threshold,
+        passed=min(dimensions.values()) >= pass_threshold
+        and overall >= pass_threshold,
         notes=scores.notes,
     )
 
@@ -155,11 +173,12 @@ def llm_judge_eval(
 # Offline eval suite runner
 # ============================================================
 
+
 def run_eval_suite(
     eval_cases: list[EvalCase],
     pipeline_fn,
-    pass_threshold:  float = 0.75,
-    min_pass_rate:   float = 0.85,
+    pass_threshold: float = 0.75,
+    min_pass_rate: float = 0.85,
 ) -> dict:
     """
     Run a golden dataset eval suite.
@@ -168,7 +187,8 @@ def run_eval_suite(
         eval_cases:    List of test cases with questions + expected answers
         pipeline_fn:   Callable(question, context) -> answer string
         pass_threshold: Minimum score per case to pass (default 0.75)
-        min_pass_rate:  Minimum fraction of cases that must pass (default 0.85)
+        min_pass_rate:  Minimum fraction of cases that must pass
+                        (default 0.85)
 
     Returns:
         Summary dict with pass_rate, mean_score, failed_cases
@@ -186,21 +206,24 @@ def run_eval_suite(
         result.case_id = case.case_id
         results.append(result)
 
-    passed    = [r for r in results if r.passed]
+    passed = [r for r in results if r.passed]
     pass_rate = len(passed) / len(results) if results else 0.0
-    mean_score = sum(r.overall for r in results) / len(results) if results else 0.0
+    mean_score = (
+        sum(r.overall for r in results) / len(results) if results else 0.0
+    )
 
     suite_passed = pass_rate >= min_pass_rate
 
     return {
-        "total_cases":  len(results),
+        "total_cases": len(results),
         "passed_cases": len(passed),
-        "pass_rate":    pass_rate,
-        "mean_score":   mean_score,
+        "pass_rate": pass_rate,
+        "mean_score": mean_score,
         "suite_passed": suite_passed,
         "failed_cases": [
             {"case_id": r.case_id, "score": r.overall, "notes": r.notes}
-            for r in results if not r.passed
+            for r in results
+            if not r.passed
         ],
     }
 
@@ -209,10 +232,11 @@ def run_eval_suite(
 # Online drift detection
 # ============================================================
 
+
 def compute_psi(
     baseline: list[float],
-    current:  list[float],
-    n_bins:   int = 10,
+    current: list[float],
+    n_bins: int = 10,
 ) -> float:
     """
     Population Stability Index (PSI) for input distribution drift detection.
@@ -227,7 +251,7 @@ def compute_psi(
     bins = np.linspace(min(all_vals), max(all_vals), n_bins + 1)
 
     base_counts, _ = np.histogram(baseline, bins=bins)
-    curr_counts, _ = np.histogram(current,  bins=bins)
+    curr_counts, _ = np.histogram(current, bins=bins)
 
     # Avoid division by zero
     base_pct = (base_counts + 0.0001) / (sum(base_counts) + 0.0001 * n_bins)
@@ -239,9 +263,9 @@ def compute_psi(
 
 def check_score_drift(
     baseline_scores: list[float],
-    current_scores:  list[float],
+    current_scores: list[float],
     alert_threshold: float = 0.10,
-    component:       str = "unknown",
+    component: str = "unknown",
 ) -> dict:
     """
     Check for score distribution drift using PSI.
@@ -252,8 +276,8 @@ def check_score_drift(
 
     psi = compute_psi(baseline_scores, current_scores)
     mean_baseline = sum(baseline_scores) / len(baseline_scores)
-    mean_current  = sum(current_scores)  / len(current_scores)
-    mean_delta    = mean_current - mean_baseline
+    mean_current = sum(current_scores) / len(current_scores)
+    mean_delta = mean_current - mean_baseline
 
     status = "stable"
     if psi > 0.25:
@@ -264,15 +288,18 @@ def check_score_drift(
         )
     elif psi > 0.10:
         status = "moderate_drift"
-        print(f"[DRIFT WARNING] {component}: PSI={psi:.3f}, mean delta={mean_delta:+.3f}")
+        print(
+            f"[DRIFT WARNING] {component}: PSI={psi:.3f}, mean "
+            f"delta={mean_delta:+.3f}"
+        )
 
     return {
-        "component":     component,
-        "psi":           psi,
-        "status":        status,
+        "component": component,
+        "psi": psi,
+        "status": status,
         "mean_baseline": mean_baseline,
-        "mean_current":  mean_current,
-        "mean_delta":    mean_delta,
+        "mean_current": mean_current,
+        "mean_delta": mean_delta,
     }
 
 
@@ -280,18 +307,19 @@ def check_score_drift(
 # Token budget enforcement
 # ============================================================
 
+
 class TokenBudgetPolicy(str, Enum):
-    HARD  = "hard"    # truncate input to stay within budget; never exceed
-    SOFT  = "soft"    # warn if exceeded; allow the call but log
-    ALERT = "alert"   # allow the call but page on-call if exceeded
+    HARD = "hard"  # truncate input to stay within budget; never exceed
+    SOFT = "soft"  # warn if exceeded; allow the call but log
+    ALERT = "alert"  # allow the call but page on-call if exceeded
 
 
 @dataclass
 class TokenBudget:
-    component:        str
+    component: str
     max_input_tokens: int
     max_output_tokens: int
-    policy:           TokenBudgetPolicy
+    policy: TokenBudgetPolicy
 
 
 OPSPU_TOKEN_BUDGETS: dict[str, TokenBudget] = {
@@ -342,18 +370,23 @@ def enforce_token_budget(
         return input_text
 
     # Rough estimate: 1 token ≈ 4 characters
-    # ~3 chars/token: Claude 4.7+ models (Sonnet 5 included) emit ~30% more tokens than
-    # the old 4-chars rule assumed. Use the token-counting API for exact counts.
+    # ~3 chars/token: Claude 4.7+ models (Sonnet 5 included) emit ~30%
+    # more tokens than the old 4-chars rule assumed. Use the
+    # token-counting API for exact counts.
     estimated_tokens = len(input_text) // 3
 
     if estimated_tokens > budget.max_input_tokens:
         message = (
             f"Token budget exceeded for {component}: "
-            f"~{estimated_tokens:,} estimated > {budget.max_input_tokens:,} limit."
+            f"~{estimated_tokens:,} estimated > {budget.max_input_tokens:,} "
+            f"limit."
         )
         if budget.policy == TokenBudgetPolicy.HARD:
             max_chars = budget.max_input_tokens * 4
-            input_text = input_text[:max_chars] + "\n[INPUT TRUNCATED — TOKEN BUDGET EXCEEDED]"
+            input_text = (
+                input_text[:max_chars]
+                + "\n[INPUT TRUNCATED — TOKEN BUDGET EXCEEDED]"
+            )
         elif budget.policy == TokenBudgetPolicy.ALERT:
             _send_budget_alert(message)
         else:
@@ -362,19 +395,31 @@ def enforce_token_budget(
     return input_text
 
 
-# Anthropic pricing (approximate; check current pricing at time of implementation)
-# cache_write is billed at ~1.25x the input rate on the first write of a cached prefix;
+# Anthropic pricing (approximate; check current pricing at time of
+# implementation)
+# cache_write is billed at ~1.25x the input rate on the first write of a
+# cached prefix;
 # omitting it underestimates the first-run cost of the documentation pipeline.
 ANTHROPIC_PRICING = {
-    "claude-haiku-4-5": {"input": 1.00 / 1e6, "output": 5.00 / 1e6, "cache_read": 0.10 / 1e6, "cache_write": 1.25 / 1e6},
-    "claude-sonnet-5":  {"input": 2.00 / 1e6, "output": 10.00 / 1e6, "cache_read": 0.20 / 1e6, "cache_write": 2.50 / 1e6},
+    "claude-haiku-4-5": {
+        "input": 1.00 / 1e6,
+        "output": 5.00 / 1e6,
+        "cache_read": 0.10 / 1e6,
+        "cache_write": 1.25 / 1e6,
+    },
+    "claude-sonnet-5": {
+        "input": 2.00 / 1e6,
+        "output": 10.00 / 1e6,
+        "cache_read": 0.20 / 1e6,
+        "cache_write": 2.50 / 1e6,
+    },
 }
 
 MONTHLY_BUDGETS_USD: dict[str, float] = {
-    "sql_generation":         15.00,
-    "documentation_pipeline":  8.00,
-    "failure_triage":           3.00,
-    "incident_search":          5.00,
+    "sql_generation": 15.00,
+    "documentation_pipeline": 8.00,
+    "failure_triage": 3.00,
+    "incident_search": 5.00,
 }
 
 
@@ -395,48 +440,55 @@ def compute_monthly_cost(
 
     summaries = []
     for component, records in by_component.items():
-        total_input   = sum(r.get("input_tokens",      0) for r in records)
-        total_output  = sum(r.get("output_tokens",     0) for r in records)
-        cache_hits    = sum(r.get("cache_read_tokens", 0) for r in records)
-        cache_writes  = sum(r.get("cache_write_tokens", 0) for r in records)
-        model         = records[0].get("model", "claude-haiku-4-5")
-        pricing       = ANTHROPIC_PRICING.get(model, ANTHROPIC_PRICING["claude-haiku-4-5"])
+        total_input = sum(r.get("input_tokens", 0) for r in records)
+        total_output = sum(r.get("output_tokens", 0) for r in records)
+        cache_hits = sum(r.get("cache_read_tokens", 0) for r in records)
+        cache_writes = sum(r.get("cache_write_tokens", 0) for r in records)
+        model = records[0].get("model", "claude-haiku-4-5")
+        pricing = ANTHROPIC_PRICING.get(
+            model, ANTHROPIC_PRICING["claude-haiku-4-5"]
+        )
 
         cost = (
-            total_input  * pricing["input"]  +
-            total_output * pricing["output"] +
-            cache_hits   * pricing["cache_read"] +
-            cache_writes * pricing["cache_write"]
+            total_input * pricing["input"]
+            + total_output * pricing["output"]
+            + cache_hits * pricing["cache_read"]
+            + cache_writes * pricing["cache_write"]
         )
         budget = MONTHLY_BUDGETS_USD.get(component, 10.00)
-        util   = cost / budget if budget > 0 else 0
+        util = cost / budget if budget > 0 else 0
 
         if util >= 0.90:
             _send_budget_alert(
-                f"{component} has used {util*100:.0f}% of monthly budget "
+                f"{component} has used {util * 100:.0f}% of monthly budget "
                 f"(${cost:.2f} / ${budget:.2f})."
             )
 
-        summaries.append({
-            "component":          component,
-            "month":              month,
-            "total_calls":        len(records),
-            "total_input_tokens": total_input,
-            "total_output_tokens":total_output,
-            "cache_hit_tokens":   cache_hits,
-            "estimated_cost_usd": round(cost, 4),
-            "budget_usd":         budget,
-            "budget_utilization": round(util, 3),
-        })
+        summaries.append(
+            {
+                "component": component,
+                "month": month,
+                "total_calls": len(records),
+                "total_input_tokens": total_input,
+                "total_output_tokens": total_output,
+                "cache_hit_tokens": cache_hits,
+                "estimated_cost_usd": round(cost, 4),
+                "budget_usd": budget,
+                "budget_utilization": round(util, 3),
+            }
+        )
     return summaries
 
 
 if __name__ == "__main__":
     # Demo drift check with synthetic scores
     import random
+
     random.seed(42)
     baseline = [random.gauss(0.82, 0.05) for _ in range(100)]
-    current  = [random.gauss(0.74, 0.07) for _ in range(100)]  # slight degradation
+    current = [
+        random.gauss(0.74, 0.07) for _ in range(100)
+    ]  # slight degradation
 
     result = check_score_drift(baseline, current, component="sql_generation")
     print(f"Drift check: PSI={result['psi']:.3f} status={result['status']}")

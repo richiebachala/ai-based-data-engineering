@@ -2,7 +2,8 @@
 # Section: 5.1-5.2 Context sources and hybrid retrieval
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
+# NOTE: Code snippets marked with ... are illustrative stubs from the book
+# text.
 # Complete implementations are provided where the full code is shown.
 
 """
@@ -27,28 +28,33 @@ import os
 
 @dataclass
 class ContextChunk:
-    source:       str        # e.g. "OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS"
-    source_type:  str        # "schema" | "dbt_model" | "runbook" | "incident" | "policy"
-    content:      str
+    source: str  # e.g. "OPSPU.MARTS.FCT_ACTIVE_CUSTOMERS"
+    source_type: (
+        str  # "schema" | "dbt_model" | "runbook" | "incident" | "policy"
+    )
+    content: str
     token_estimate: int = 0
-    metadata:     dict = field(default_factory=dict)
+    metadata: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # Rough estimate: 1 token ≈ 4 characters
-        self.token_estimate = max(1, len(self.content) // 3)  # ~3 chars/token (Claude 4.7+ tokenizer)
+        self.token_estimate = max(
+            1, len(self.content) // 3
+        )  # ~3 chars/token (Claude 4.7+ tokenizer)
 
 
 @dataclass
 class TableContext:
-    table_fqn:  str
-    columns:    list[dict]   # [{column_name, data_type, is_nullable, comment}]
-    row_count:  Optional[int] = None
+    table_fqn: str
+    columns: list[dict]  # [{column_name, data_type, is_nullable, comment}]
+    row_count: Optional[int] = None
     last_modified: Optional[str] = None
 
 
 # ============================================================
 # Source 1: Schema / catalog metadata
 # ============================================================
+
 
 def fetch_table_context(
     conn: snowflake.connector.connection.SnowflakeConnection,
@@ -62,12 +68,15 @@ def fetch_table_context(
     """
     db, schema, table = table_fqn.upper().split(".")
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(
+            """
             SELECT column_name, data_type, is_nullable, comment
             FROM information_schema.columns
             WHERE table_schema = %s AND table_name = %s
             ORDER BY ordinal_position
-        """, (schema, table))
+        """,
+            (schema, table),
+        )
         rows = cur.fetchall()
 
     if not rows:
@@ -81,9 +90,9 @@ def fetch_table_context(
         columns=[
             {
                 "column_name": row[0],
-                "data_type":   row[1],
+                "data_type": row[1],
                 "is_nullable": row[2],
-                "comment":     row[3] or "",
+                "comment": row[3] or "",
             }
             for row in rows
         ],
@@ -95,10 +104,12 @@ def table_context_to_chunk(table_ctx: TableContext) -> ContextChunk:
     col_lines = [
         f"  {c['column_name']} ({c['data_type']}, "
         f"{'nullable' if c['is_nullable'] == 'YES' else 'not null'})"
-        + (f" — {c['comment']}" if c['comment'] else "")
+        + (f" — {c['comment']}" if c["comment"] else "")
         for c in table_ctx.columns
     ]
-    content = f"Table: {table_ctx.table_fqn}\nColumns:\n" + "\n".join(col_lines)
+    content = f"Table: {table_ctx.table_fqn}\nColumns:\n" + "\n".join(
+        col_lines
+    )
     return ContextChunk(
         source=table_ctx.table_fqn,
         source_type="schema",
@@ -110,6 +121,7 @@ def table_context_to_chunk(table_ctx: TableContext) -> ContextChunk:
 # ============================================================
 # Source 2: dbt model artifacts
 # ============================================================
+
 
 def fetch_dbt_model_context(
     manifest: dict,
@@ -129,7 +141,8 @@ def fetch_dbt_model_context(
 
     description = model.get("description", "")
 
-    # Correct approach: find tests in manifest.nodes where attached_node matches
+    # Correct approach: find tests in manifest.nodes
+    # where attached_node matches
     column_tests: dict[str, list[str]] = {}
     for node_key, node in manifest.get("nodes", {}).items():
         if node.get("resource_type") != "test":
@@ -141,7 +154,10 @@ def fetch_dbt_model_context(
         test_name = node.get("name", "").split(".")[-1]
         column_tests.setdefault(col_name, []).append(test_name)
 
-    content_parts = [f"dbt model: {model_name}", f"Description: {description}"]
+    content_parts = [
+        f"dbt model: {model_name}",
+        f"Description: {description}",
+    ]
     if column_tests:
         content_parts.append("Column tests:")
         for col, tests in column_tests.items():
@@ -159,6 +175,7 @@ def fetch_dbt_model_context(
 # Source 3: Sample data
 # ============================================================
 
+
 def fetch_sample_rows(
     conn: snowflake.connector.connection.SnowflakeConnection,
     table_fqn: str,
@@ -168,12 +185,15 @@ def fetch_sample_rows(
     """Fetch representative sample rows as context."""
     exclude = set(c.upper() for c in (exclude_pii_columns or []))
     with conn.cursor() as cur:
-        cur.execute(f"""
+        cur.execute(
+            f"""
             SELECT *
             FROM {table_fqn}
             TABLESAMPLE BERNOULLI(1)
             LIMIT %s
-        """, (limit,))
+        """,
+            (limit,),
+        )
         columns = [d[0] for d in cur.description]
         rows = cur.fetchall()
 
@@ -199,6 +219,7 @@ def fetch_sample_rows(
 # Cortex Search source (Section 5.2)
 # ============================================================
 
+
 def search_incident_history(
     query: str,
     service_name: str = "OPSPU.MARTS.INCIDENT_SEARCH_SERVICE",
@@ -216,7 +237,9 @@ def search_incident_history(
         limit:        Maximum number of results to return
     """
     try:
-        from snowflake.cortex import CortexSearchService  # snowflake-ml-python >= 1.5
+        from snowflake.cortex import (
+            CortexSearchService,
+        )  # snowflake-ml-python >= 1.5
     except ImportError:
         raise ImportError(
             "snowflake-ml-python >= 1.5 is required for CortexSearchService. "
@@ -224,18 +247,27 @@ def search_incident_history(
         )
 
     import snowflake.snowpark as snowpark
-    session = snowpark.Session.builder.configs({
-        "account":   os.environ["SNOWFLAKE_ACCOUNT"],
-        "user":      os.environ["SNOWFLAKE_USER"],
-        "password":  os.environ["SNOWFLAKE_PASSWORD"],
-        "role":      os.environ.get("SNOWFLAKE_ROLE", "DATA_ENGINEER"),
-        "warehouse": os.environ.get("SNOWFLAKE_WAREHOUSE", "DEV_WH"),
-    }).create()
+
+    session = snowpark.Session.builder.configs(
+        {
+            "account": os.environ["SNOWFLAKE_ACCOUNT"],
+            "user": os.environ["SNOWFLAKE_USER"],
+            "password": os.environ["SNOWFLAKE_PASSWORD"],
+            "role": os.environ.get("SNOWFLAKE_ROLE", "DATA_ENGINEER"),
+            "warehouse": os.environ.get("SNOWFLAKE_WAREHOUSE", "DEV_WH"),
+        }
+    ).create()
 
     svc = CortexSearchService(session, service_name)
     results = svc.search(
         query=query,
-        columns=["ticket_id", "summary", "root_cause", "resolution", "created_at"],
+        columns=[
+            "ticket_id",
+            "summary",
+            "root_cause",
+            "resolution",
+            "created_at",
+        ],
         limit=limit,
     )
 
@@ -246,14 +278,16 @@ def search_incident_history(
             f"Root cause: {r.get('root_cause', 'not documented')}\n"
             f"Resolution: {r.get('resolution', 'not documented')}"
         )
-        chunks.append(ContextChunk(
-            source=service_name,
-            source_type="incident_history",
-            content=content,
-            metadata={
-                "ticket_id": r.get("ticket_id"),
-                "created_at": str(r.get("created_at", "")),
-                "score":      r.get("@SCORE", 0.0),
-            },
-        ))
+        chunks.append(
+            ContextChunk(
+                source=service_name,
+                source_type="incident_history",
+                content=content,
+                metadata={
+                    "ticket_id": r.get("ticket_id"),
+                    "created_at": str(r.get("created_at", "")),
+                    "score": r.get("@SCORE", 0.0),
+                },
+            )
+        )
     return chunks

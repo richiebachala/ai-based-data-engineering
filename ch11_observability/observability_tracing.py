@@ -2,8 +2,9 @@
 # Section: 11.2 OpenTelemetry tracing for AI pipelines
 # Book: AI-Based Data Engineering (Packt)
 #
-# NOTE: Code snippets marked with ... are illustrative stubs from the book text.
-# Complete implementations are provided where the full code is shown.
+# NOTE: Code snippets marked with ... are illustrative stubs from
+# the book text. Complete implementations are provided where the
+# full code is shown.
 
 """
 OpenTelemetry tracing for AI pipeline components.
@@ -21,9 +22,13 @@ try:
     from opentelemetry import trace
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+        OTLPSpanExporter,
+    )
 except ImportError:
-    raise ImportError("pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http")
+    raise ImportError(
+        "pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http"
+    )
 
 import anthropic
 import base64
@@ -37,6 +42,7 @@ from functools import wraps
 # Tracer setup
 # ============================================================
 
+
 def setup_ai_tracing(
     service_name: str,
     langfuse_host: str = None,
@@ -46,16 +52,20 @@ def setup_ai_tracing(
     Langfuse ingests OTLP over HTTP (not gRPC) at /api/public/otel,
     authenticated with Basic auth built from the project key pair.
     """
-    langfuse_host = langfuse_host or os.environ.get("LANGFUSE_HOST", "http://localhost:3000")
+    langfuse_host = langfuse_host or os.environ.get(
+        "LANGFUSE_HOST", "http://localhost:3000"
+    )
     auth = base64.b64encode(
-        f"{os.environ['LANGFUSE_PUBLIC_KEY']}:{os.environ['LANGFUSE_SECRET_KEY']}".encode()
+        f"{os.environ['LANGFUSE_PUBLIC_KEY']}:"
+        f"{os.environ['LANGFUSE_SECRET_KEY']}".encode()
     ).decode()
     provider = TracerProvider()
     exporter = OTLPSpanExporter(
         endpoint=f"{langfuse_host}/api/public/otel/v1/traces",
         headers={
             "Authorization": f"Basic {auth}",
-            "x-langfuse-ingestion-version": "4",  # current ingestion path; spans appear without delay
+            # current ingestion path; spans appear without delay
+            "x-langfuse-ingestion-version": "4",
         },
     )
     provider.add_span_processor(BatchSpanProcessor(exporter))
@@ -78,6 +88,7 @@ def get_tracer() -> trace.Tracer:
 # ============================================================
 # Traced LLM call wrapper
 # ============================================================
+
 
 def traced_llm_call(
     component: str,
@@ -103,11 +114,15 @@ def traced_llm_call(
 
     with tracer.start_as_current_span(f"llm.{component}") as span:
         # GenAI semantic convention attributes
-        span.set_attribute("gen_ai.provider.name",      "anthropic")  # was gen_ai.system
-        span.set_attribute("gen_ai.request.model",      model)
+        span.set_attribute(
+            "gen_ai.provider.name", "anthropic"
+        )  # was gen_ai.system
+        span.set_attribute("gen_ai.request.model", model)
         span.set_attribute("gen_ai.request.max_tokens", max_tokens)
-        span.set_attribute("opspu.component",           component)
-        span.set_attribute("opspu.timestamp",           datetime.now(timezone.utc).isoformat())
+        span.set_attribute("opspu.component", component)
+        span.set_attribute(
+            "opspu.timestamp", datetime.now(timezone.utc).isoformat()
+        )
 
         if extra_attributes:
             for k, v in extra_attributes.items():
@@ -127,18 +142,22 @@ def traced_llm_call(
             written = getattr(usage, "cache_creation_input_tokens", 0) or 0
 
             # Record token usage in span
-            span.set_attribute("gen_ai.usage.input_tokens",  usage.input_tokens)
-            span.set_attribute("gen_ai.usage.output_tokens", usage.output_tokens)
-            span.set_attribute("opspu.cache_read_tokens",    cached)
-            span.set_attribute("opspu.cache_write_tokens",   written)
+            span.set_attribute(
+                "gen_ai.usage.input_tokens", usage.input_tokens
+            )
+            span.set_attribute(
+                "gen_ai.usage.output_tokens", usage.output_tokens
+            )
+            span.set_attribute("opspu.cache_read_tokens", cached)
+            span.set_attribute("opspu.cache_write_tokens", written)
 
             return response.content[0].text, {
-                "input_tokens":      usage.input_tokens,
-                "output_tokens":     usage.output_tokens,
+                "input_tokens": usage.input_tokens,
+                "output_tokens": usage.output_tokens,
                 "cache_read_tokens": cached,
                 "cache_write_tokens": written,
-                "model":             model,
-                "component":         component,
+                "model": model,
+                "component": component,
             }
 
         except Exception as e:
@@ -151,6 +170,7 @@ def traced_llm_call(
 # Pipeline-level tracing decorator
 # ============================================================
 
+
 def trace_pipeline_step(step_name: str):
     """
     Decorator that wraps a pipeline function in an OpenTelemetry span.
@@ -160,13 +180,18 @@ def trace_pipeline_step(step_name: str):
         def generate_sql(requirement, schema):
             ...
     """
+
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         def wrapper(*args, **kwargs):
             tracer = get_tracer()
-            with tracer.start_as_current_span(f"pipeline.{step_name}") as span:
-                span.set_attribute("pipeline.step",  step_name)
-                span.set_attribute("pipeline.start", datetime.now(timezone.utc).isoformat())
+            with tracer.start_as_current_span(
+                f"pipeline.{step_name}"
+            ) as span:
+                span.set_attribute("pipeline.step", step_name)
+                span.set_attribute(
+                    "pipeline.start", datetime.now(timezone.utc).isoformat()
+                )
                 try:
                     result = fn(*args, **kwargs)
                     span.set_attribute("pipeline.status", "success")
@@ -174,15 +199,18 @@ def trace_pipeline_step(step_name: str):
                 except Exception as e:
                     span.record_exception(e)
                     span.set_attribute("pipeline.status", "error")
-                    span.set_attribute("pipeline.error",  str(e)[:200])
+                    span.set_attribute("pipeline.error", str(e)[:200])
                     raise
+
         return wrapper
+
     return decorator
 
 
 # ============================================================
 # Usage record for cost tracking
 # ============================================================
+
 
 class UsageRecord:
     """Accumulate token usage records across a pipeline run."""
@@ -196,10 +224,12 @@ class UsageRecord:
 
     def total_tokens(self) -> dict:
         return {
-            "input":      sum(r.get("input_tokens",      0) for r in self.records),
-            "output":     sum(r.get("output_tokens",     0) for r in self.records),
-            "cache_read": sum(r.get("cache_read_tokens", 0) for r in self.records),
-            "calls":      len(self.records),
+            "input": sum(r.get("input_tokens", 0) for r in self.records),
+            "output": sum(r.get("output_tokens", 0) for r in self.records),
+            "cache_read": sum(
+                r.get("cache_read_tokens", 0) for r in self.records
+            ),
+            "calls": len(self.records),
         }
 
 
@@ -211,4 +241,7 @@ if __name__ == "__main__":
     print("  LANGFUSE_SECRET_KEY=<your-secret-key>")
     print("  LANGFUSE_PUBLIC_KEY=<your-public-key>")
     print("  LANGFUSE_HOST=https://cloud.langfuse.com")
-    print("  (spans export over OTLP/HTTP to $LANGFUSE_HOST/api/public/otel/v1/traces)")
+    print(
+        "  (spans export over OTLP/HTTP to "
+        "$LANGFUSE_HOST/api/public/otel/v1/traces)"
+    )
