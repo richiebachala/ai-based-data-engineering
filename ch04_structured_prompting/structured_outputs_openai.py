@@ -22,7 +22,6 @@ The model CANNOT produce output that violates the schema.
 
 from openai import OpenAI
 from pydantic import BaseModel, Field
-from typing import Optional
 import json
 
 client = OpenAI()

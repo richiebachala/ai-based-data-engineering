@@ -24,10 +24,8 @@ as flat output/*.parquet files. Models are called through LiteLLM, so
 model_provider: anthropic works without a proxy.
 """
 
-import os
 import pandas as pd
 from pathlib import Path
-from typing import Optional
 import anthropic
 import json
 

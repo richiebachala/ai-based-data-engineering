@@ -23,7 +23,7 @@ The five constraint-set elements that address the three failure modes:
   5. Fallback       — what to return when context is insufficient
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 import json
 import anthropic
@@ -186,7 +186,6 @@ def build_column_description_prompt(
 # Anomaly triage with PTCF
 # ============================================================
 
-from pydantic import BaseModel, Field
 from enum import Enum
 
 

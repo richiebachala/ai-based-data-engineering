@@ -161,12 +161,11 @@ def score_table(
     if dbt_manifest:
         nodes = dbt_manifest.get("nodes", {})
         model_key = f"model.opspu.{table.lower()}"
-        model = nodes.get(model_key, {})
         tests = [
             n
             for n in nodes.values()
             if n.get("resource_type") == "test"
-            and table.lower() in str(n.get("attached_node", ""))
+            and n.get("attached_node") == model_key
         ]
         if len(tests) >= 5:
             d3 = 3

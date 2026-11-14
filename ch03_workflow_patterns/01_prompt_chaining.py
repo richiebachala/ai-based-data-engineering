@@ -19,7 +19,7 @@ OpsPulse use case: column description generation pipeline
 
 import asyncio
 import anthropic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 client = anthropic.Anthropic()
 

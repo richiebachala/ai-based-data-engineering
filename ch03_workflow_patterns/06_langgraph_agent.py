@@ -152,7 +152,7 @@ def human_review_checkpoint(
 
 def emit_report(state: AgentState) -> dict:
     """Node: emit the final impact report."""
-    print(f"\n=== IMPACT REPORT ===")
+    print("\n=== IMPACT REPORT ===")
     print(f"Change: {state['proposed_change']}")
     print(f"Overall risk: {state['risk_level']}")
     for a in state["assessments"]:

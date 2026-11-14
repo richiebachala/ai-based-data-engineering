@@ -20,7 +20,6 @@ This server is SAFE to give to agents with broad latitude:
 
 from mcp.server.mcpserver import MCPServer
 import snowflake.connector
-import json
 import os
 from typing import Optional
 

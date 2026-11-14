@@ -30,9 +30,7 @@ from typing import Optional
 import uuid
 
 from schema_profiling import (
-    ColumnProfile,
     TableEntityDetection,
-    ColumnRole,
     PIIClass,
     profile_table,
     detect_profile_anomalies,
@@ -286,20 +284,20 @@ def _generate_dbt_yaml_block(
     """Generate the schema.yml column descriptions block for this table."""
     lines = [
         f"  - name: {model_name}",
-        f"    description: >",
+        "    description: >",
         f"      {entity_det.entity_type}. {entity_det.grain}.",
-        f"    columns:",
+        "    columns:",
     ]
     for col_class in entity_det.columns:
         desc = descriptions.get(col_class.column_name, "")
         pii_tag = (
-            f"\n        meta:\n          pii: true"
+            "\n        meta:\n          pii: true"
             if col_class.pii_class != PIIClass.NONE
             else ""
         )
         lines += [
             f"      - name: {col_class.column_name}",
-            f"        description: >",
+            "        description: >",
             f"          {desc}{pii_tag}",
         ]
     return "\n".join(lines)

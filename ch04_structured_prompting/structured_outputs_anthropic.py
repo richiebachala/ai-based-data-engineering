@@ -21,7 +21,6 @@ This is the canonical structured output pattern used throughout Parts
 
 import anthropic
 from pydantic import BaseModel, Field
-from typing import Optional
 import json
 
 client = anthropic.Anthropic()

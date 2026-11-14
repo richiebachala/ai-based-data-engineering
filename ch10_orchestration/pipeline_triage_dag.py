@@ -19,13 +19,11 @@ Bug fix C10-2: All 7 helper functions are defined (not just referenced).
 
 from __future__ import annotations
 
-import json
-import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import anthropic
 import snowflake.connector
-from airflow.sdk import PokeReturnValue, Variable, dag, task
+from airflow.sdk import Variable, dag, task
 from pydantic import BaseModel, Field
 from typing import Optional
 from enum import Enum

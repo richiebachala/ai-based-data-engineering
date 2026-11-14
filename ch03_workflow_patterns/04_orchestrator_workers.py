@@ -21,8 +21,7 @@ OpsPulse use case: lineage impact analysis
 
 import asyncio
 import anthropic
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel
 import json
 
 client = anthropic.Anthropic()

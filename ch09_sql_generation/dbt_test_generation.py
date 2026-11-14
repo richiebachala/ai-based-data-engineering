@@ -21,7 +21,6 @@ the pipeline writes the first draft.
 
 import anthropic
 from pydantic import BaseModel, Field
-from typing import Optional
 import json
 import re
 
@@ -84,7 +83,7 @@ def generate_dbt_tests(
                 DbtTest(
                     test_type="not_null",
                     column=col,
-                    comment=f"Identifier column; 0% null in profile",
+                    comment="Identifier column; 0% null in profile",
                 )
             )
             if role == "identifier":
@@ -93,7 +92,7 @@ def generate_dbt_tests(
                         test_type="unique",
                         column=col,
                         comment=(
-                            f"Identifier column; high-cardinality in profile"
+                            "Identifier column; high-cardinality in profile"
                         ),
                     )
                 )
@@ -111,7 +110,7 @@ def generate_dbt_tests(
                         "to": f"ref('{ref_table.lower()}')",
                         "field": ref_col,
                     },
-                    comment=f"FK detected in entity classification",
+                    comment="FK detected in entity classification",
                 )
             )
 
@@ -140,7 +139,7 @@ def generate_dbt_tests(
                     test_type="accepted_values",
                     column=col,
                     options={"values": [True, False]},
-                    comment=f"Boolean/flag column",
+                    comment="Boolean/flag column",
                 )
             )
 
@@ -150,7 +149,7 @@ def generate_dbt_tests(
                 DbtTest(
                     test_type="not_null",
                     column=col,
-                    comment=f"Event timestamp; should never be null",
+                    comment="Event timestamp; should never be null",
                 )
             )
 
@@ -176,8 +175,8 @@ def _tests_to_yaml(model_name: str, tests: list[DbtTest]) -> str:
     for col, col_tests in by_col.items():
         lines.append(f"      - name: {col}")
         lines.append(
-            f"        data_tests:  # dbt v1.8+; use 'tests:' for v1.7 and "
-            f"earlier"
+            "        data_tests:  # dbt v1.8+; use 'tests:' for v1.7 and "
+            "earlier"
         )
         for t in col_tests:
             if t.options:

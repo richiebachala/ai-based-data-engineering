@@ -68,7 +68,7 @@ def emit_ingestion_lineage(
             ],
             outputs=[
                 Dataset(
-                    namespace=f"snowflake://opspu/marts",
+                    namespace="snowflake://opspu/marts",
                     name=target_table,
                 )
             ],
@@ -102,12 +102,12 @@ def emit_transformation_lineage(
             run=Run(runId=run_id),
             job=Job(namespace=namespace, name=job_name),
             inputs=[
-                Dataset(namespace=f"snowflake://opspu/raw", name=t)
+                Dataset(namespace="snowflake://opspu/raw", name=t)
                 for t in input_tables
             ],
             outputs=[
                 Dataset(
-                    namespace=f"snowflake://opspu/marts", name=output_table
+                    namespace="snowflake://opspu/marts", name=output_table
                 )
             ],
         )

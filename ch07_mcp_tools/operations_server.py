@@ -21,7 +21,7 @@ because it is passed in the tool INPUT (request.approval_token), not stored
 in a JSON-serialized intermediate state.
 """
 
-from mcp.server.mcpserver import MCPServer, Context
+from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 import snowflake.connector
 from pydantic import BaseModel, Field

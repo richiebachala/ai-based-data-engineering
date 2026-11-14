@@ -20,9 +20,7 @@ Vector retrieval fails on three categories of queries that graph handles:
 """
 
 import networkx as nx
-import json
 from dataclasses import dataclass, field
-from typing import Optional
 import re
 
 

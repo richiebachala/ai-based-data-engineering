@@ -25,7 +25,6 @@ import anthropic
 import re
 from pydantic import BaseModel, Field
 from enum import Enum
-from typing import Optional
 from dataclasses import dataclass, field
 
 client = anthropic.Anthropic()

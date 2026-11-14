@@ -19,10 +19,9 @@ The bug fix for C5-1 (Cortex Search filter) is shown in the
 Snowflake Cortex Search integration at the bottom of this file.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 import anthropic
-import json
 
 try:
     from rank_bm25 import BM25Okapi
