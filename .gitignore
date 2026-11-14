@@ -17,6 +17,8 @@ env/
 # Secrets
 .env
 *.env.*
+# The template has placeholders only; the README tells readers to copy it.
+!.env.example
 credentials.json
 *.pem
 *.key
