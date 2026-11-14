@@ -43,22 +43,40 @@ jobs:
           print(f"OK  {len(files)} files — all pass syntax check")
           EOF
 
-      - name: Verify requirements.txt is parseable
+      - name: Lint (pyflakes)
         run: |
-          python - << 'EOF'
-          import re, sys
+          pip install --quiet pyflakes
+          python -m pyflakes $(git ls-files '*.py')
 
-          lines = open("requirements.txt").readlines()
-          pattern = re.compile(r"[\w\-\.\[\]]+")
-          bad = [
-              l.strip()
-              for l in lines
-              if l.strip()
-              and not l.startswith("#")
-              and not pattern.match(l.strip())
+      - name: Verify requirements files are parseable
+        run: |
+          pip install --quiet packaging
+          python - << 'EOF'
+          import sys
+          from packaging.requirements import Requirement
+
+          files = [
+              "requirements.txt",
+              "requirements-crewai.txt",
+              "requirements-graphrag.txt",
           ]
+          bad = []
+          for name in files:
+              for n, line in enumerate(open(name), 1):
+                  spec = line.split("#", 1)[0].strip()
+                  if not spec:
+                      continue
+                  try:
+                      Requirement(spec)
+                  except Exception as e:
+                      bad.append(f"{name}:{n}  {spec}  ({e})")
           if bad:
-              print("Unparseable lines:", bad)
+              print("Unparseable lines:\n" + "\n".join(bad))
               sys.exit(1)
-          print(f"OK  requirements.txt ({len(lines)} lines)")
+          print(f"OK  {len(files)} requirements files")
           EOF
+
+      - name: Notebooks match their generator
+        run: |
+          python generate_ch3457_notebooks.py
+          git diff --exit-code -- '*.ipynb'
