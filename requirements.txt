@@ -76,3 +76,4 @@ apache-airflow-providers-snowflake>=5.0   # Ch10, Ch12 (SnowflakeHook)
 ragas>=0.2                # Ch11
 datasets>=2.0             # Ch11 (RAGAs datasets)
 braintrust>=0.0.150       # Ch11 (optional eval history)
+duckdb>=1.0               # Ch1 and setup/: the zero-account Tier A demo (local OpsPulse dataset)
